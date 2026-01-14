@@ -79,16 +79,30 @@ export async function POST(request: Request) {
         }
 
         const body = await request.json();
+        console.log("Creating training with body:", body);
 
         // Basic validation
-        if (!body.code || !body.name || !body.duration_min) {
-            return NextResponse.json({ success: false, message: "Eksik bilgi" }, { status: 400 });
+        if (!body.code || !body.name || body.duration_min === undefined || body.duration_min === null) {
+            console.log("Validation failed: Missing fields", body);
+            return NextResponse.json({ success: false, message: "Eksik bilgi: Kod, Ad ve Süre zorunludur" }, { status: 400 });
+        }
+
+        let durationMin = 0;
+        try {
+            durationMin = typeof body.duration_min === 'string' ? parseInt(body.duration_min, 10) : Number(body.duration_min);
+        } catch (e) {
+            console.error("Duration parse error", e);
+        }
+
+        if (isNaN(durationMin)) {
+            console.log("Validation failed: Invalid duration", body.duration_min);
+            return NextResponse.json({ success: false, message: "Geçersiz süre" }, { status: 400 });
         }
 
         const [newTraining] = await db.insert(trainings).values({
             code: body.code,
             name: body.name,
-            durationMin: body.duration_min,
+            durationMin: durationMin,
             category: body.category || "TEMEL",
             defaultLocation: body.default_location || null,
             defaultDocumentType: body.default_document_type || null,
@@ -110,10 +124,15 @@ export async function POST(request: Request) {
             data: newTraining,
         });
 
-
-    } catch (error) {
+    } catch (error: any) {
         console.error("Training create error:", error);
-        return NextResponse.json({ success: false, message: "Hata" }, { status: 500 });
+
+        // Handle unique constraint violation
+        if (error?.message?.includes("UNIQUE constraint failed: trainings.code")) {
+            return NextResponse.json({ success: false, message: "Bu eğitim kodu zaten kullanılıyor" }, { status: 400 });
+        }
+
+        return NextResponse.json({ success: false, message: "Kayıt başarısız: " + (error?.message || "Bilinmeyen hata") }, { status: 500 });
     }
 }
 

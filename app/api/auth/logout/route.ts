@@ -11,7 +11,9 @@ export async function POST(request: Request) {
         await logout();
 
         // Form submissions require a redirect, not JSON
-        return NextResponse.redirect(new URL("/login", request.url));
+        return NextResponse.redirect(new URL("/login", request.url), {
+            status: 303,
+        });
     } catch (error) {
         console.error("Logout API error:", error);
         return NextResponse.json(
