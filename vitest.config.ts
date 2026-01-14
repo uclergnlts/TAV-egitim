@@ -11,5 +11,9 @@ export default defineConfig({
         alias: {
             '@': resolve(__dirname, './'),
         },
+        coverage: {
+            provider: 'v8',
+            reporter: ['text', 'json', 'html'],
+        },
     },
 })
