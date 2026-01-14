@@ -27,9 +27,17 @@ interface Definition {
     name: string;
 }
 
+interface PersonnelInfo {
+    sicil_no: string;
+    fullName: string;
+    gorevi: string;
+    found: boolean;
+}
+
 interface PendingRecord {
     id: string; // Temporary ID for list management
-    sicil_nos: string[]; // Display purpose
+    sicil_nos: string[]; // Keep for backward compat / API payload
+    personnel_details: PersonnelInfo[]; // New: contains full name, gorevi
     sicil_list_str: string; // For form restoration
     training_id: string;
     training_name: string;
@@ -198,7 +206,7 @@ export default function ChefDashboard() {
 
     // --- LISTE YÖNETİMİ ---
 
-    const handleAddToList = () => {
+    const handleAddToList = async () => {
         setErrorMsg("");
         setSuccessMsg("");
 
@@ -230,10 +238,42 @@ export default function ChefDashboard() {
             topicName = training.topics.find(t => t.id === selectedTopicId)?.title || "";
         }
 
+        // Fetch personnel details from API
+        let personnelDetails: PersonnelInfo[] = [];
+        try {
+            const res = await fetch("/api/personnel/lookup", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ sicil_nos: sicilList })
+            });
+            const data = await res.json();
+            if (data.success) {
+                // Map API response to PersonnelInfo, marking found status
+                const foundMap = new Map<string, { sicil_no: string, fullName: string, gorevi: string }>(
+                    data.data.map((p: any) => [p.sicil_no, p])
+                );
+                personnelDetails = sicilList.map(sicil => {
+                    const found = foundMap.get(sicil);
+                    if (found) {
+                        return { sicil_no: sicil, fullName: found.fullName, gorevi: found.gorevi, found: true };
+                    } else {
+                        return { sicil_no: sicil, fullName: "Bulunamadı", gorevi: "-", found: false };
+                    }
+                });
+            } else {
+                // Fallback: just use sicil numbers without names
+                personnelDetails = sicilList.map(sicil => ({ sicil_no: sicil, fullName: "?", gorevi: "-", found: false }));
+            }
+        } catch (err) {
+            console.error("Personnel lookup failed:", err);
+            personnelDetails = sicilList.map(sicil => ({ sicil_no: sicil, fullName: "?", gorevi: "-", found: false }));
+        }
+
         // Add to Pending List
         const newRecord: PendingRecord = {
             id: crypto.randomUUID(),
             sicil_nos: sicilList,
+            personnel_details: personnelDetails,
             sicil_list_str: sicilNos,
             training_id: selectedTrainingId,
             training_name: training?.name || "",
@@ -254,8 +294,7 @@ export default function ChefDashboard() {
 
         setPendingRecords([...pendingRecords, newRecord]);
 
-        // Formu temizlemiyoruz, seri giriş için kolaylık olsun diye sadece sicilleri temizleyebiliriz
-        // veya kullanıcı ayarları korumak isteyebilir. Şimdilik sicilleri temizleyelim.
+        // Clear sicil input for next batch
         setSicilNos("");
     };
 
@@ -606,14 +645,20 @@ export default function ChefDashboard() {
                                         </td>
                                         <td className="p-4">
                                             <div className="flex flex-wrap gap-1">
-                                                {record.sicil_nos.slice(0, 5).map(s => (
-                                                    <span key={s} className="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-600 border border-gray-200">{s}</span>
+                                                {record.personnel_details.slice(0, 5).map(p => (
+                                                    <span
+                                                        key={p.sicil_no}
+                                                        className={`px-2 py-0.5 rounded text-xs border ${p.found ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-600 border-red-200'}`}
+                                                        title={`${p.sicil_no} - ${p.gorevi}`}
+                                                    >
+                                                        {p.fullName}
+                                                    </span>
                                                 ))}
-                                                {record.sicil_nos.length > 5 && (
-                                                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-bold">+{record.sicil_nos.length - 5} kişi daha</span>
+                                                {record.personnel_details.length > 5 && (
+                                                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-bold">+{record.personnel_details.length - 5} kişi daha</span>
                                                 )}
                                             </div>
-                                            <div className="text-xs text-gray-400 mt-1">Toplam {record.sicil_nos.length} kişi</div>
+                                            <div className="text-xs text-gray-400 mt-1">Toplam {record.personnel_details.length} kişi</div>
                                         </td>
                                         <td className="p-4">
                                             <div className="text-gray-900">{record.trainer_name}</div>
