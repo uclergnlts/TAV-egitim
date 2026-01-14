@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 // Types
 interface Training {
@@ -26,6 +27,27 @@ interface Definition {
     name: string;
 }
 
+interface PendingRecord {
+    id: string; // Temporary ID for list management
+    sicil_nos: string[]; // Display purpose
+    sicil_list_str: string; // For form restoration
+    training_id: string;
+    training_name: string;
+    training_topic_id?: string;
+    training_topic_name?: string;
+    trainer_id: string;
+    trainer_name: string;
+    ic_dis_egitim: string;
+    egitim_yeri: string;
+    baslama_tarihi: string;
+    bitis_tarihi: string;
+    baslama_saati: string;
+    bitis_saati: string;
+    sonuc_belgesi_turu: string;
+    egitim_detayli_aciklama: string;
+    duration: number;
+}
+
 export default function ChefDashboard() {
     const router = useRouter();
 
@@ -44,8 +66,9 @@ export default function ChefDashboard() {
     const [locationType, setLocationType] = useState("IC"); // IC / DIS
     const [trainingLocation, setTrainingLocation] = useState("");
     const [documentType, setDocumentType] = useState("");
+    const [description, setDescription] = useState("");
 
-    // Date/Time States (Initialized as empty to avoid hydration mismatch, set in useEffect)
+    // Date/Time States
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
     const [startTime, setStartTime] = useState("09:00");
@@ -56,6 +79,10 @@ export default function ChefDashboard() {
 
     // Personnel
     const [sicilNos, setSicilNos] = useState("");
+
+    // Pending List Logic
+    const [pendingRecords, setPendingRecords] = useState<PendingRecord[]>([]);
+    const [selectedRecordIds, setSelectedRecordIds] = useState<string[]>([]);
 
     // UI Status
     const [loading, setLoading] = useState(false);
@@ -87,11 +114,7 @@ export default function ChefDashboard() {
 
     const setInitialDateTime = () => {
         const now = new Date();
-
-        // Date: YYYY-MM-DD
         const dateStr = now.toLocaleDateString("en-CA");
-
-        // Time: HH:MM
         const hours = now.getHours().toString().padStart(2, "0");
         const minutes = now.getMinutes().toString().padStart(2, "0");
         const timeStr = `${hours}:${minutes}`;
@@ -100,7 +123,6 @@ export default function ChefDashboard() {
         setEndDate(dateStr);
         setStartTime(timeStr);
 
-        // Default End time: +1 hour
         const endNow = new Date(now.getTime() + 60 * 60 * 1000);
         const endHours = endNow.getHours().toString().padStart(2, "0");
         const endMinutes = endNow.getMinutes().toString().padStart(2, "0");
@@ -131,7 +153,7 @@ export default function ChefDashboard() {
     const handleTrainingChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const tId = e.target.value;
         setSelectedTrainingId(tId);
-        setSelectedTopicId(""); // Reset topic
+        setSelectedTopicId("");
 
         const training = trainings.find(t => t.id === tId);
         if (training) {
@@ -139,7 +161,6 @@ export default function ChefDashboard() {
             setDocumentType(training.default_document_type || "");
             setTrainingLocation(training.default_location || "");
 
-            // Recalculate end time based on new duration if start time exists
             if (startTime) {
                 calculateEndTime(startTime, training.duration_min);
             }
@@ -155,7 +176,6 @@ export default function ChefDashboard() {
         const [h, m] = startStr.split(":").map(Number);
         const date = new Date();
         date.setHours(h, m, 0, 0);
-
         date.setMinutes(date.getMinutes() + durationMin);
 
         const endH = date.getHours().toString().padStart(2, "0");
@@ -165,27 +185,24 @@ export default function ChefDashboard() {
 
     const handleStartTimeChange = (val: string) => {
         setStartTime(val);
-        // If we have a duration, auto-update end time
         if (trainingDuration > 0) {
             calculateEndTime(val, trainingDuration);
         }
     };
 
     const handleDurationAdd = (minutes: number) => {
-        // Manually adding duration updates end time but doesn't lock "schema duration"
         if (startTime) {
             calculateEndTime(startTime, minutes);
-            // Optionally update displayed duration? 
-            // setTrainingDuration(minutes); // Let's keep the schematic duration separate
         }
     };
 
-    const handleSubmit = async () => {
-        setLoading(true);
+    // --- LISTE YÖNETİMİ ---
+
+    const handleAddToList = () => {
         setErrorMsg("");
         setSuccessMsg("");
-        setResultDetails(null);
 
+        // Validation
         const sicilList = sicilNos
             .split(/[\n,]+/)
             .map(s => s.trim())
@@ -193,21 +210,37 @@ export default function ChefDashboard() {
 
         if (sicilList.length === 0) {
             setErrorMsg("Lütfen en az bir sicil numarası giriniz.");
-            setLoading(false);
             return;
         }
 
         if (!selectedTrainingId || !selectedTrainerId || !trainingLocation) {
             setErrorMsg("Lütfen tüm zorunlu alanları doldurunuz (*)");
-            setLoading(false);
             return;
         }
 
-        const payload = {
+        const training = trainings.find(t => t.id === selectedTrainingId);
+        const trainer = trainers.find(t => t.id === selectedTrainerId);
+        let topicName = "";
+
+        if (training?.has_topics) {
+            if (!selectedTopicId) {
+                setErrorMsg("Bu eğitim için Alt Başlık seçimi zorunludur.");
+                return;
+            }
+            topicName = training.topics.find(t => t.id === selectedTopicId)?.title || "";
+        }
+
+        // Add to Pending List
+        const newRecord: PendingRecord = {
+            id: crypto.randomUUID(),
             sicil_nos: sicilList,
+            sicil_list_str: sicilNos,
             training_id: selectedTrainingId,
-            training_topic_id: selectedTopicId || undefined,
+            training_name: training?.name || "",
+            training_topic_id: selectedTopicId,
+            training_topic_name: topicName,
             trainer_id: selectedTrainerId,
+            trainer_name: trainer?.fullName || "",
             ic_dis_egitim: locationType,
             egitim_yeri: trainingLocation,
             baslama_tarihi: startDate,
@@ -215,26 +248,118 @@ export default function ChefDashboard() {
             baslama_saati: startTime,
             bitis_saati: endTime,
             sonuc_belgesi_turu: documentType,
-            egitim_detayli_aciklama: ""
+            egitim_detayli_aciklama: description,
+            duration: trainingDuration
         };
 
+        setPendingRecords([...pendingRecords, newRecord]);
+
+        // Formu temizlemiyoruz, seri giriş için kolaylık olsun diye sadece sicilleri temizleyebiliriz
+        // veya kullanıcı ayarları korumak isteyebilir. Şimdilik sicilleri temizleyelim.
+        setSicilNos("");
+    };
+
+    const handleRemoveFromList = (id: string) => {
+        setPendingRecords(pendingRecords.filter(r => r.id !== id));
+        setSelectedRecordIds(selectedRecordIds.filter(sid => sid !== id));
+    };
+
+    const handleEditFromList = (record: PendingRecord) => {
+        // Formu doldur
+        setSicilNos(record.sicil_list_str);
+        setSelectedTrainingId(record.training_id);
+        setSelectedTopicId(record.training_topic_id || "");
+        setSelectedTrainerId(record.trainer_id);
+        setLocationType(record.ic_dis_egitim);
+        setTrainingLocation(record.egitim_yeri);
+        setStartDate(record.baslama_tarihi);
+        setEndDate(record.bitis_tarihi);
+        setStartTime(record.baslama_saati);
+        setEndTime(record.bitis_saati);
+        setDocumentType(record.sonuc_belgesi_turu);
+        setDescription(record.egitim_detayli_aciklama);
+        setTrainingDuration(record.duration); // Görsel amaçlı
+
+        // Listeden çıkar (Kullanıcı tekrar ekle diyecek)
+        handleRemoveFromList(record.id);
+    };
+
+    const handleBulkDelete = () => {
+        setPendingRecords(pendingRecords.filter(r => !selectedRecordIds.includes(r.id)));
+        setSelectedRecordIds([]);
+    };
+
+    const toggleSelectRecord = (id: string) => {
+        if (selectedRecordIds.includes(id)) {
+            setSelectedRecordIds(selectedRecordIds.filter(sid => sid !== id));
+        } else {
+            setSelectedRecordIds([...selectedRecordIds, id]);
+        }
+    };
+
+    const handleSelectAll = () => {
+        if (selectedRecordIds.length === pendingRecords.length) {
+            setSelectedRecordIds([]);
+        } else {
+            setSelectedRecordIds(pendingRecords.map(r => r.id));
+        }
+    };
+
+
+    // --- VERİTABANI KAYIT ---
+
+    const handleBulkSave = async () => {
+        if (pendingRecords.length === 0) {
+            setErrorMsg("Listede eklenecek kayıt bulunmuyor.");
+            return;
+        }
+
+        setLoading(true);
+        setErrorMsg("");
+        setSuccessMsg("");
+
+        // Flat mapping records (her pending record birden fazla sicil içerebilir, bunları API'ye tek tek veya array olarak gönderiyoruz)
+        // API array bekliyor. Bizim yapımızda pendingRecord içinde sicil_nos array var.
+        // API tekil nesnelerden oluşan array bekliyor. Bu yüzden flatten yapmalıyız.
+
+        const flatPayload: any[] = [];
+
+        pendingRecords.forEach(record => {
+            record.sicil_nos.forEach(sicil => {
+                flatPayload.push({
+                    sicil_no: sicil,
+                    training_id: record.training_id,
+                    training_topic_id: record.training_topic_id,
+                    trainer_id: record.trainer_id,
+                    ic_dis_egitim: record.ic_dis_egitim,
+                    egitim_yeri: record.egitim_yeri,
+                    baslama_tarihi: record.baslama_tarihi,
+                    bitis_tarihi: record.bitis_tarihi,
+                    baslama_saati: record.baslama_saati,
+                    bitis_saati: record.bitis_saati,
+                    sonuc_belgesi_turu: record.sonuc_belgesi_turu,
+                    egitim_detayli_aciklama: record.egitim_detayli_aciklama
+                });
+            });
+        });
+
         try {
-            const res = await fetch("/api/attendances", {
+            const res = await fetch("/api/attendances/bulk", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(flatPayload)
             });
             const result = await res.json();
 
             if (result.success) {
-                setSuccessMsg(result.message);
-                setResultDetails(result.data);
-                setSicilNos("");
+                setSuccessMsg(`Başarıyla kaydedildi! (Toplam ${flatPayload.length} Personel Kaydı)`);
+                setPendingRecords([]);
+                setSelectedRecordIds([]);
             } else {
-                setErrorMsg(result.message || "Bir hata oluştu");
+                setErrorMsg(result.message || "Kaydetme sırasında hata oluştu");
             }
         } catch (err) {
-            setErrorMsg("Sunucu hatası oluştu.");
+            setErrorMsg("Sunucu iletişim hatası.");
         } finally {
             setLoading(false);
         }
@@ -244,31 +369,24 @@ export default function ChefDashboard() {
 
     return (
         <div className="max-w-7xl mx-auto pb-20 px-4">
-
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Yeni Katılım Girişi</h1>
-                    <p className="text-gray-500 mt-1">Eğitim kaydı oluşturmak için bilgileri doldurunuz.</p>
+                    <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Eğitim Kayıt Girişi</h1>
+                    <p className="text-gray-500 mt-1">Önce kayıtları listeye ekleyin, ardından toplu olarak kaydedin.</p>
                 </div>
                 <div className="flex items-center space-x-2 bg-blue-50 px-4 py-2 rounded-lg border border-blue-100 text-blue-800 text-sm font-medium">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span>Şu An: {new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}</span>
+                    <span>Bugün: {new Date().toLocaleDateString('tr-TR')}</span>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-
+            {/* FORM AREA */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
                 {/* LEFT COLUMN: Training Info */}
                 <div className="space-y-6">
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                         <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
                             <h2 className="text-lg font-semibold text-white flex items-center">
-                                <span className="bg-white/20 p-1.5 rounded-lg mr-3">
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
-                                </span>
                                 Eğitim Bilgileri
                             </h2>
                         </div>
@@ -279,7 +397,7 @@ export default function ChefDashboard() {
                                 <select
                                     value={selectedTrainingId}
                                     onChange={handleTrainingChange}
-                                    className="w-full h-12 border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-base px-3"
+                                    className="w-full h-12 border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 text-base px-3"
                                 >
                                     <option value="">Seçiniz...</option>
                                     {trainings.map(t => (
@@ -288,14 +406,13 @@ export default function ChefDashboard() {
                                 </select>
                             </div>
 
-                            {/* Sub Topic */}
                             {selectedTraining?.has_topics && (
-                                <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-100 animate-fadeIn">
+                                <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-100">
                                     <label className="block text-sm font-semibold text-yellow-800 mb-2">Alt Başlık <span className="text-red-500">*</span></label>
                                     <select
                                         value={selectedTopicId}
                                         onChange={(e) => setSelectedTopicId(e.target.value)}
-                                        className="w-full h-11 border border-yellow-300 rounded-lg shadow-sm focus:ring-yellow-500 focus:border-yellow-500 bg-white"
+                                        className="w-full h-11 border border-yellow-300 rounded-lg bg-white"
                                     >
                                         <option value="">Alt Başlık Seçiniz...</option>
                                         {selectedTraining.topics.map(topic => (
@@ -305,14 +422,13 @@ export default function ChefDashboard() {
                                 </div>
                             )}
 
-                            {/* Trainer & Location & Type Grid */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Eğitmen <span className="text-red-500">*</span></label>
                                     <select
                                         value={selectedTrainerId}
                                         onChange={(e) => setSelectedTrainerId(e.target.value)}
-                                        className="w-full h-11 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 px-3"
+                                        className="w-full h-11 border border-gray-300 rounded-lg px-3"
                                     >
                                         <option value="">Seçiniz</option>
                                         {trainers.map(t => (
@@ -321,11 +437,11 @@ export default function ChefDashboard() {
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Tür <span className="text-red-500">*</span></label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Tür</label>
                                     <select
                                         value={locationType}
                                         onChange={(e) => setLocationType(e.target.value)}
-                                        className="w-full h-11 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 px-3"
+                                        className="w-full h-11 border border-gray-300 rounded-lg px-3"
                                     >
                                         <option value="IC">İç Eğitim</option>
                                         <option value="DIS">Dış Eğitim</option>
@@ -336,20 +452,20 @@ export default function ChefDashboard() {
                                     <select
                                         value={trainingLocation}
                                         onChange={(e) => setTrainingLocation(e.target.value)}
-                                        className="w-full h-11 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 px-3"
+                                        className="w-full h-11 border border-gray-300 rounded-lg px-3"
                                     >
-                                        <option value="">Seçiniz veya Otomatik Gelir</option>
+                                        <option value="">Seçiniz</option>
                                         {locations.map(loc => (
                                             <option key={loc.id} value={loc.name}>{loc.name}</option>
                                         ))}
                                     </select>
                                 </div>
                                 <div className="md:col-span-2">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Sonuç Belgesi <span className="text-red-500">*</span></label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Sonuç Belgesi</label>
                                     <select
                                         value={documentType}
                                         onChange={(e) => setDocumentType(e.target.value)}
-                                        className="w-full h-11 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 px-3"
+                                        className="w-full h-11 border border-gray-300 rounded-lg px-3"
                                     >
                                         <option value="">Seçiniz</option>
                                         {documentTypes.map(doc => (
@@ -360,162 +476,197 @@ export default function ChefDashboard() {
                             </div>
                         </div>
                     </div>
-
-                    {/* Info Card */}
-                    {selectedTraining && (
-                        <div className="bg-blue-50 rounded-xl p-5 border border-blue-100 flex justify-between items-center">
-                            <div>
-                                <span className="text-xs font-bold text-blue-500 uppercase tracking-wider">Tanımlı Süre</span>
-                                <div className="text-2xl font-bold text-blue-900">{trainingDuration} dk</div>
-                            </div>
-                            <div className="text-right">
-                                <span className="text-xs font-bold text-blue-500 uppercase tracking-wider">Varsayılan Konum</span>
-                                <div className="text-sm font-medium text-blue-900">{selectedTraining.default_location || "-"}</div>
-                            </div>
-                        </div>
-                    )}
                 </div>
 
-                {/* RIGHT COLUMN: Time & Personnel */}
+                {/* RIGHT COLUMN */}
                 <div className="space-y-6">
-
-                    {/* Timing Card */}
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                        <div className="bg-gray-50 px-6 py-4 border-b border-gray-100 flex justify-between items-center">
-                            <h2 className="text-lg font-semibold text-gray-800 flex items-center">
-                                <span className="text-gray-400 mr-2">📅</span> Tarih ve Saat
-                            </h2>
-                            <button
-                                onClick={setInitialDateTime}
-                                className="text-xs text-blue-600 hover:text-blue-800 font-semibold hover:underline"
-                            >
-                                Şimdiye Ayarla ↻
-                            </button>
+                        <div className="bg-gray-50 px-6 py-4 border-b border-gray-100 flex justify-between">
+                            <h2 className="text-lg font-semibold text-gray-800">Tarih ve Saat</h2>
+                            <button onClick={setInitialDateTime} className="text-xs text-blue-600 font-bold hover:underline">Sıfırla</button>
                         </div>
                         <div className="p-6">
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <label className="block text-xs font-bold text-gray-500 uppercase">Başlangıç</label>
-                                    <input
-                                        type="date"
-                                        value={startDate}
-                                        onChange={(e) => setStartDate(e.target.value)}
-                                        className="w-full border border-gray-300 rounded-lg focus:ring-blue-500 text-sm px-3 py-2"
-                                    />
-                                    <input
-                                        type="time"
-                                        value={startTime}
-                                        onChange={(e) => handleStartTimeChange(e.target.value)}
-                                        className="w-full border border-gray-300 rounded-lg focus:ring-blue-500 text-lg font-semibold px-3 py-2"
-                                    />
+                                    <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full border border-gray-300 rounded-lg text-sm px-3 py-2" />
+                                    <input type="time" value={startTime} onChange={(e) => handleStartTimeChange(e.target.value)} className="w-full border border-gray-300 rounded-lg text-lg font-bold px-3 py-2" />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="block text-xs font-bold text-gray-500 uppercase">Bitiş</label>
-                                    <input
-                                        type="date"
-                                        value={endDate}
-                                        onChange={(e) => setEndDate(e.target.value)}
-                                        className="w-full border border-gray-300 rounded-lg focus:ring-blue-500 text-sm px-3 py-2"
-                                    />
-                                    <input
-                                        type="time"
-                                        value={endTime}
-                                        onChange={(e) => setEndTime(e.target.value)}
-                                        className="w-full border border-gray-300 rounded-lg focus:ring-blue-500 text-lg font-semibold px-3 py-2"
-                                    />
+                                    <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full border border-gray-300 rounded-lg text-sm px-3 py-2" />
+                                    <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="w-full border border-gray-300 rounded-lg text-lg font-bold px-3 py-2" />
                                 </div>
                             </div>
-
-                            {/* Duration Modifiers */}
-                            <div className="mt-4 flex gap-2 overflow-x-auto pb-2">
-                                <span className="text-xs bg-gray-100 px-2 py-1 rounded self-center text-gray-500">Hızlı Ekle:</span>
-                                {[30, 45, 60, 90, 120, 360].map(m => (
-                                    <button
-                                        key={m}
-                                        onClick={() => handleDurationAdd(m)}
-                                        className="px-3 py-1 bg-white border border-gray-200 hover:border-blue-400 hover:bg-blue-50 text-xs font-medium rounded-full transition-colors whitespace-nowrap"
-                                    >
-                                        +{m}dk
-                                    </button>
+                            {/* Duration Helper */}
+                            <div className="mt-4 flex gap-2 overflow-x-auto py-2">
+                                {[30, 45, 60, 90, 120, 480].map(m => (
+                                    <button key={m} onClick={() => handleDurationAdd(m)} className="px-3 py-1 bg-gray-100 hover:bg-blue-100 text-xs rounded-full border border-gray-200">+{m}dk</button>
                                 ))}
                             </div>
                         </div>
                     </div>
 
-                    {/* Personnel Card */}
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-[400px]">
+                    {/* Personnel Input */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-[300px]">
                         <div className="bg-gray-50 px-6 py-4 border-b border-gray-100">
-                            <h2 className="text-lg font-semibold text-gray-800 flex items-center">
-                                <span className="text-gray-400 mr-2">👥</span> Katılımcı Listesi
-                            </h2>
+                            <h2 className="text-lg font-semibold text-gray-800">Katılımcı Sicilleri</h2>
                         </div>
-                        <div className="p-6 flex-1 flex flex-col">
-                            <div className="mb-2 flex justify-between items-end">
-                                <label className="block text-sm font-medium text-gray-700">Sicil Numaraları</label>
-                                <span className="text-xs text-gray-400">Her satıra bir sicil</span>
-                            </div>
+                        <div className="p-4 flex-1 flex flex-col">
                             <textarea
                                 value={sicilNos}
                                 onChange={(e) => setSicilNos(e.target.value)}
-                                placeholder="Örn: 12345&#10;67890&#10;11223"
-                                className="w-full flex-1 border border-gray-300 rounded-xl shadow-inner focus:ring-purple-500 focus:border-purple-500 font-mono text-base p-4 resize-none"
+                                placeholder="Her satıra bir sicil no gelecek şekilde yapıştırın..."
+                                className="w-full flex-1 border border-gray-300 rounded-xl p-3 resize-none font-mono text-sm focus:ring-2 focus:ring-blue-500"
                             />
-
-                            {/* Stats & Tools */}
-                            <div className="mt-3 flex justify-between items-center text-xs text-gray-500">
-                                <span>{sicilNos.split(/[\n,]+/).filter(x => x.trim().length > 0).length} Kişi Girildi</span>
-                                <button onClick={() => setSicilNos("")} className="text-red-500 hover:text-red-700">Temizle</button>
+                            <div className="mt-2 text-right">
+                                <button onClick={() => setSicilNos("")} className="text-xs text-red-500 hover:text-red-700">Temizle</button>
                             </div>
                         </div>
                     </div>
 
-                    {/* Submit Button */}
+                    {/* ADD BUTTON */}
                     <button
-                        onClick={handleSubmit}
-                        disabled={loading}
-                        className={`w-full py-4 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold text-lg rounded-2xl shadow-lg shadow-green-200 transform transition-all active:scale-95 ${loading ? 'opacity-70 cursor-wait' : ''}`}
+                        onClick={handleAddToList}
+                        className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg rounded-xl shadow-lg transition-transform active:scale-95"
                     >
-                        {loading ? (
-                            <span className="flex items-center justify-center gap-2">
-                                <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                İşleniyor...
-                            </span>
-                        ) : (
-                            'KAYDET VE TAMAMLA'
-                        )}
+                        LİSTEYE EKLE ⬇️
                     </button>
-
-                    {/* Feedback Messages */}
-                    {errorMsg && (
-                        <div className="p-4 bg-red-50 text-red-800 rounded-xl border border-red-100 flex items-start gap-3 animate-slideDown">
-                            <span className="text-xl">⚠️</span>
-                            <div>
-                                <h4 className="font-bold">Hata Oluştu</h4>
-                                <p className="text-sm opacity-90">{errorMsg}</p>
-                            </div>
-                        </div>
-                    )}
-
-                    {successMsg && (
-                        <div className="p-4 bg-green-50 text-green-800 rounded-xl border border-green-100 flex items-start gap-3 animate-slideDown">
-                            <span className="text-xl">✅</span>
-                            <div className="flex-1">
-                                <h4 className="font-bold">İşlem Başarılı!</h4>
-                                <p className="text-sm opacity-90">{successMsg}</p>
-                                {resultDetails && resultDetails.error_count > 0 && (
-                                    <div className="mt-2 bg-white/50 p-2 rounded text-xs text-red-600">
-                                        <strong>Dikkat:</strong> {resultDetails.error_count} kayıt eklenemedi.
-                                        <ul className="list-disc list-inside mt-1">
-                                            {resultDetails.errors.map((e: string, i: number) => <li key={i}>{e}</li>)}
-                                        </ul>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    )}
-
                 </div>
             </div>
+
+            {/* ERROR / SUCCESS MESSAGES */}
+            {(errorMsg || successMsg) && (
+                <div className={`mb-8 p-4 rounded-xl border flex items-center gap-3 ${errorMsg ? 'bg-red-50 border-red-100 text-red-800' : 'bg-green-50 border-green-100 text-green-800'}`}>
+                    <span className="text-2xl">{errorMsg ? '⚠️' : '✅'}</span>
+                    <div>
+                        <h4 className="font-bold">{errorMsg ? 'Hata' : 'İşlem Başarılı'}</h4>
+                        <p>{errorMsg || successMsg}</p>
+                    </div>
+                </div>
+            )}
+
+
+            {/* PENDING LIST TABLE */}
+            {pendingRecords.length > 0 && (
+                <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden mb-12 animate-slideUp">
+                    <div className="bg-gray-50 px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                        <div>
+                            <h2 className="text-xl font-bold text-gray-800">Eklenecek Kayıtlar Listesi</h2>
+                            <p className="text-sm text-gray-500">{pendingRecords.length} grup kaydı bekliyor</p>
+                        </div>
+                        {selectedRecordIds.length > 0 && (
+                            <button
+                                onClick={handleBulkDelete}
+                                className="bg-red-100 text-red-700 px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-200 transition-colors"
+                            >
+                                Seçilenleri Sil ({selectedRecordIds.length})
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-left">
+                            <thead className="bg-gray-100 text-gray-600 uppercase text-xs font-bold">
+                                <tr>
+                                    <th className="p-4 w-10">
+                                        <input
+                                            type="checkbox"
+                                            onChange={handleSelectAll}
+                                            checked={pendingRecords.length > 0 && selectedRecordIds.length === pendingRecords.length}
+                                            className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                        />
+                                    </th>
+                                    <th className="p-4">Eğitim</th>
+                                    <th className="p-4">Tarih</th>
+                                    <th className="p-4">Katılımcılar</th>
+                                    <th className="p-4">Eğitmen / Yer</th>
+                                    <th className="p-4 text-center">İşlemler</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {pendingRecords.map((record) => (
+                                    <tr key={record.id} className={`hover:bg-blue-50 transition-colors ${selectedRecordIds.includes(record.id) ? 'bg-blue-50' : ''}`}>
+                                        <td className="p-4">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedRecordIds.includes(record.id)}
+                                                onChange={() => toggleSelectRecord(record.id)}
+                                                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                            />
+                                        </td>
+                                        <td className="p-4">
+                                            <div className="font-bold text-gray-900">{record.training_name}</div>
+                                            {record.training_topic_name && <div className="text-xs text-orange-600">{record.training_topic_name}</div>}
+                                            <div className="text-xs text-gray-400 mt-1">{record.duration} dk</div>
+                                        </td>
+                                        <td className="p-4">
+                                            <div className="text-gray-900">{record.baslama_tarihi}</div>
+                                            <div className="text-xs text-gray-500">{record.baslama_saati} - {record.bitis_saati}</div>
+                                        </td>
+                                        <td className="p-4">
+                                            <div className="flex flex-wrap gap-1">
+                                                {record.sicil_nos.slice(0, 5).map(s => (
+                                                    <span key={s} className="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-600 border border-gray-200">{s}</span>
+                                                ))}
+                                                {record.sicil_nos.length > 5 && (
+                                                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs font-bold">+{record.sicil_nos.length - 5} kişi daha</span>
+                                                )}
+                                            </div>
+                                            <div className="text-xs text-gray-400 mt-1">Toplam {record.sicil_nos.length} kişi</div>
+                                        </td>
+                                        <td className="p-4">
+                                            <div className="text-gray-900">{record.trainer_name}</div>
+                                            <div className="text-xs text-gray-500">{record.egitim_yeri} ({record.ic_dis_egitim})</div>
+                                        </td>
+                                        <td className="p-4 text-center">
+                                            <div className="flex items-center justify-center gap-2">
+                                                <button
+                                                    onClick={() => handleEditFromList(record)}
+                                                    className="p-2 text-blue-600 hover:bg-blue-100 rounded-full transition-colors"
+                                                    title="Düzenle (Listeden çıkarıp forma geri yükler)"
+                                                >
+                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                                </button>
+                                                <button
+                                                    onClick={() => handleRemoveFromList(record.id)}
+                                                    className="p-2 text-red-600 hover:bg-red-100 rounded-full transition-colors"
+                                                    title="Listeden Sil"
+                                                >
+                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* BULK ACTION BAR */}
+                    <div className="bg-gray-50 px-6 py-6 border-t border-gray-200">
+                        <div className="flex justify-end">
+                            <button
+                                onClick={handleBulkSave}
+                                disabled={loading}
+                                className={`px-8 py-4 bg-green-600 hover:bg-green-700 text-white font-bold text-lg rounded-xl shadow-lg flex items-center gap-3 transition-all transform hover:scale-105 ${loading ? 'opacity-70 cursor-wait' : ''}`}
+                            >
+                                {loading ? (
+                                    <>
+                                        <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                        <span>GÖNDERİLİYOR...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <span>TÜMÜNÜ KAYDET VE TAMAMLA</span>
+                                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
