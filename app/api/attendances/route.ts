@@ -228,3 +228,70 @@ export async function POST(request: NextRequest) {
         );
     }
 }
+
+export async function DELETE(request: NextRequest) {
+    try {
+        const session = await getSession();
+        if (!session) {
+            return NextResponse.json(
+                { success: false, message: "Oturum açmanız gerekiyor" },
+                { status: 401 }
+            );
+        }
+
+        // Sadece ADMIN silebilir
+        if (session.role !== "ADMIN") {
+            return NextResponse.json(
+                { success: false, message: "Bu işlem için yetkiniz yok" },
+                { status: 403 }
+            );
+        }
+
+        const searchParams = request.nextUrl.searchParams;
+        const id = searchParams.get("id");
+
+        if (!id) {
+            return NextResponse.json(
+                { success: false, message: "Silmek için ID gerekli" },
+                { status: 400 }
+            );
+        }
+
+        // Önce kaydı bul (audit için)
+        const existingRecord = await db.query.attendances.findFirst({
+            where: eq(attendances.id, id),
+        });
+
+        if (!existingRecord) {
+            return NextResponse.json(
+                { success: false, message: "Kayıt bulunamadı" },
+                { status: 404 }
+            );
+        }
+
+        // Sil
+        await db.delete(attendances).where(eq(attendances.id, id));
+
+        // Audit Log
+        await logAction({
+            userId: session.userId,
+            userRole: "ADMIN",
+            actionType: "DELETE",
+            entityType: "attendance",
+            entityId: id,
+            oldValue: existingRecord,
+        });
+
+        return NextResponse.json({
+            success: true,
+            message: "Katılım kaydı silindi",
+        });
+
+    } catch (error) {
+        console.error("Attendance delete error:", error);
+        return NextResponse.json(
+            { success: false, message: "Silme işlemi başarısız" },
+            { status: 500 }
+        );
+    }
+}
