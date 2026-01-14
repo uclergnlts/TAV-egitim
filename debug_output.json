@@ -1,0 +1,242 @@
+[
+  [
+    null,
+    "EĞİTİMLER",
+    "EĞİTİM KODU ",
+    "EĞİTİM ALT BAŞLIKLARI",
+    "EĞİTİM KODU",
+    "EĞİTİM SÜRESİ (dk)"
+  ],
+  [
+    1,
+    "BİLGİ TAZELEME EĞİTİMİ",
+    "M4",
+    "Personel,Yolcu Taranması",
+    "M4",
+    40
+  ],
+  [
+    1,
+    "BİLGİ TAZELEME EĞİTİMİ",
+    "M4",
+    "Kabin ve Uçakaltı Eşyaların Taranması",
+    "M8",
+    40
+  ],
+  [
+    1,
+    "BİLGİ TAZELEME EĞİTİMİ",
+    "M4",
+    "ECAC Denetimi öncesi bilgi tazeleme",
+    "M9",
+    60
+  ],
+  [
+    1,
+    "BİLGİ TAZELEME EĞİTİMİ",
+    "M4",
+    "TSA Denetimi öncesi bilgi tazeleme",
+    "M10 ",
+    60
+  ],
+  [
+    1,
+    "BİLGİ TAZELEME EĞİTİMİ",
+    "M4",
+    "EADUK Denetimi öncesi bilgi tazeleme",
+    "M11",
+    40
+  ],
+  [
+    2,
+    "BİLGİ TAZELEME EĞİTİMİ",
+    "M4",
+    "ONLİNE'dan Alınan Eğitim içeriği",
+    "M12",
+    80
+  ],
+  [
+    3,
+    "POTANSİYEL TEHLİKE ARZ EDEN YOLCULARIN KONTROLÜ",
+    "M8",
+    "Potansiyel Tehlike Arz Eden Yolcuların Kontrolü",
+    "M15",
+    60
+  ],
+  [
+    4,
+    "İKRAM GÜVENLİGİ EĞİTİMİ",
+    "M9",
+    "İkram Güvenligi Eğitimi",
+    "M16",
+    40
+  ],
+  [
+    5,
+    "UÇAK TEMİZLİK GÜVENLİĞİ",
+    "M10 ",
+    "Uçak Temizlik Güvenliği",
+    "M17",
+    40
+  ],
+  [
+    6,
+    "KARGO POSTA GÜVENLİĞİ",
+    "M11",
+    "Kargo Posta Güvenliği",
+    "M18",
+    360
+  ],
+  [
+    7,
+    "SÜRÜCÜ GÜVENLİĞİ",
+    "M12",
+    "PAT Sahaları Araç Kullanım Eğitimi",
+    "M19",
+    60
+  ],
+  [
+    8,
+    "ATM PERSONELLERİNE VERİLECEK GÜVENLİK EĞİTİMİ",
+    "M15",
+    "ATM Personellerine Verilecek Güvenlik Eğitimi",
+    "M20",
+    60
+  ],
+  [
+    9,
+    "TEHLİKELİ MADDELER",
+    "M16",
+    "Tehlikeli Maddeler",
+    "M21",
+    40
+  ],
+  [
+    10,
+    "YOLCU MÜLAKATI VE SEYAHAT DÖKÜMANLARI",
+    "M17",
+    "Yolcu Mülakatı Ve Seyahat Dökümanları",
+    "M22",
+    40
+  ],
+  [
+    11,
+    "İLETİŞİM VE BEDEN DİLİ EĞİTİMİ",
+    "M18",
+    "İletişim Ve Beden Dili Eğitimi",
+    "M23",
+    40
+  ],
+  [
+    12,
+    "YÖNETİM VE LİDERLİK EĞİTİMİ",
+    "M19",
+    "Yönetim Ve Liderlik Eğitimi",
+    "M24",
+    20
+  ],
+  [
+    13,
+    "KRİZ YÖNETİMİ",
+    "M20",
+    "Kriz Yönetimi",
+    "M25",
+    360
+  ],
+  [
+    14,
+    "MONİTÖR GÖREVLİSİ",
+    "M21",
+    "Personelin Eksikliğine Yönelik Eğitim",
+    "M26",
+    40
+  ],
+  [
+    15,
+    "YÖNLENDİRME GÖREVLİSİ",
+    "M22",
+    "Personelin Eksikliğine Yönelik Eğitim",
+    "M27",
+    40
+  ],
+  [
+    15,
+    "ÜST TARAMA GÖREVLİSİ",
+    "M23",
+    "Üst Tarama Eğitimi",
+    "M28",
+    320
+  ],
+  [
+    15,
+    "ÜST TARAMA GÖREVLİSİ",
+    "M23",
+    "El Dedektörü ile Üst Tarama Teknikleri",
+    "M29",
+    60
+  ],
+  [
+    16,
+    "ÜST TARAMA GÖREVLİSİ",
+    "M23",
+    "Elle Arama ve Özellikli Yolcuların Aranması Eğitimi",
+    "M30",
+    320
+  ],
+  [
+    17,
+    "BAGAJ TARAMA GÖREVLİSİ",
+    "M24",
+    "Personelin Eksikliğine Yönelik Eğitim",
+    "M31",
+    1440
+  ],
+  [
+    18,
+    "STRESLE BAŞA ÇIKMA VE MOTİVASYON",
+    "M25",
+    "Stresle Başa Çıkma Ve Motivasyon",
+    "M32",
+    320
+  ],
+  [
+    18,
+    "GÜVENLİK SİSTEM VE CİHAZLARI ",
+    "M26",
+    "LEDS Cihazı",
+    "M33",
+    60
+  ],
+  [
+    18,
+    "GÜVENLİK SİSTEM VE CİHAZLARI ",
+    "M26",
+    "ETD Cihazı",
+    "M34",
+    60
+  ],
+  [
+    19,
+    "GÜVENLİK SİSTEM VE CİHAZLARI ",
+    "M26",
+    "Güvenlik Tarayıcısı",
+    "M35",
+    720
+  ],
+  [
+    20,
+    "İLETİŞİM VE MÜŞTERİ İLİŞKİLERİ",
+    "M27",
+    "İletişim Ve Müşteri İlişkileri",
+    "M35-T",
+    320
+  ],
+  [
+    20,
+    "ORYANTASYON",
+    "M28",
+    "Oryantasyon Genel Dış Proje İşe Başlama Eğitimi",
+    "M36",
+    320
+  ]
+]
