@@ -1,12 +1,7 @@
-/**
- * Admin Panel Layout
- * Sadece ADMIN rolü erişebilir
- * Referans: 03-UI-FLOWS.md
- */
-
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import Link from "next/link";
+import Image from "next/image";
 
 export default async function AdminLayout({
     children,
@@ -31,10 +26,14 @@ export default async function AdminLayout({
                 {/* Logo */}
                 <div className="p-6 border-b border-gray-700">
                     <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
-                            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                            </svg>
+                        <div className="bg-white/10 p-2 rounded-lg backdrop-blur-sm">
+                            <Image
+                                src="/tav-logo.svg"
+                                alt="TAV Logo"
+                                width={40}
+                                height={40}
+                                className="w-auto h-8 brightness-0 invert"
+                            />
                         </div>
                         <div>
                             <h1 className="font-bold">TAV Eğitim</h1>

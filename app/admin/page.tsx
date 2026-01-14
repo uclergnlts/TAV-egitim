@@ -7,41 +7,47 @@ import { db, attendances } from "@/lib/db";
 import { eq, and, sql } from "drizzle-orm";
 import Link from "next/link";
 
-async function getStats() {
-    const currentDate = new Date();
-    const currentYear = currentDate.getFullYear();
-    const currentMonth = currentDate.getMonth() + 1;
+import { unstable_cache } from "next/cache";
 
-    // Bu ay toplam katılım
-    const monthlyStats = await db
-        .select({
-            count: sql<number>`CAST(count(*) AS INTEGER)`,
-            totalMinutes: sql<number>`CAST(coalesce(sum(${attendances.egitimSuresiDk}), 0) AS INTEGER)`,
-        })
-        .from(attendances)
-        .where(
-            and(
-                eq(attendances.year, currentYear),
-                eq(attendances.month, currentMonth)
-            )
-        );
+const getStats = unstable_cache(
+    async () => {
+        const currentDate = new Date();
+        const currentYear = currentDate.getFullYear();
+        const currentMonth = currentDate.getMonth() + 1;
 
-    // Bu yıl toplam katılım
-    const yearlyStats = await db
-        .select({
-            count: sql<number>`CAST(count(*) AS INTEGER)`,
-            totalMinutes: sql<number>`CAST(coalesce(sum(${attendances.egitimSuresiDk}), 0) AS INTEGER)`,
-        })
-        .from(attendances)
-        .where(eq(attendances.year, currentYear));
+        // Bu ay toplam katılım
+        const monthlyStats = await db
+            .select({
+                count: sql<number>`CAST(count(*) AS INTEGER)`,
+                totalMinutes: sql<number>`CAST(coalesce(sum(${attendances.egitimSuresiDk}), 0) AS INTEGER)`,
+            })
+            .from(attendances)
+            .where(
+                and(
+                    eq(attendances.year, currentYear),
+                    eq(attendances.month, currentMonth)
+                )
+            );
 
-    return {
-        monthlyCount: monthlyStats[0]?.count || 0,
-        monthlyMinutes: monthlyStats[0]?.totalMinutes || 0,
-        yearlyCount: yearlyStats[0]?.count || 0,
-        yearlyMinutes: yearlyStats[0]?.totalMinutes || 0,
-    };
-}
+        // Bu yıl toplam katılım
+        const yearlyStats = await db
+            .select({
+                count: sql<number>`CAST(count(*) AS INTEGER)`,
+                totalMinutes: sql<number>`CAST(coalesce(sum(${attendances.egitimSuresiDk}), 0) AS INTEGER)`,
+            })
+            .from(attendances)
+            .where(eq(attendances.year, currentYear));
+
+        return {
+            monthlyCount: monthlyStats[0]?.count || 0,
+            monthlyMinutes: monthlyStats[0]?.totalMinutes || 0,
+            yearlyCount: yearlyStats[0]?.count || 0,
+            yearlyMinutes: yearlyStats[0]?.totalMinutes || 0,
+        };
+    },
+    ['admin-dashboard-stats'], // Cache key
+    { revalidate: 300 } // 5 dakika (300 saniye) cache
+);
 
 export default async function AdminDashboard() {
     const stats = await getStats();

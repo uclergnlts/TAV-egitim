@@ -1,15 +1,22 @@
+import Image from "next/image";
+
 export default function Loading() {
     return (
-        <div className="fixed inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center">
-            <div className="flex flex-col items-center space-y-4">
-                <div className="relative w-16 h-16">
-                    {/* Outer ring */}
-                    <div className="absolute inset-0 border-4 border-blue-100 rounded-full animate-pulse"></div>
-                    {/* Inner spinner */}
-                    <div className="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
+        <div className="fixed inset-0 bg-white/90 backdrop-blur-sm z-50 flex items-center justify-center">
+            <div className="flex flex-col items-center space-y-6">
+                <div className="relative">
+                    <Image
+                        src="/tav-logo.svg"
+                        alt="Loading..."
+                        width={120}
+                        height={60}
+                        className="animate-pulse"
+                    />
                 </div>
-                <div className="text-blue-600 font-medium animate-pulse">
-                    Yükleniyor...
+                <div className="flex flex-col items-center gap-2">
+                    <div className="h-1 w-32 bg-gray-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-blue-600 animate-[loading_1s_ease-in-out_infinite]" style={{ width: '50%' }}></div>
+                    </div>
                 </div>
             </div>
         </div>
