@@ -1,7 +1,6 @@
 /**
  * Authentication Library
  * JWT tabanlı kimlik doğrulama
- * Referans: 04-ACCESS-CONTROL.md, 16-PERMISSION-MATRIX.md
  */
 
 import { SignJWT, jwtVerify } from "jose";

@@ -1,6 +1,5 @@
 /**
  * TAV Eğitim Paneli - Veritabanı Şeması (Turso/SQLite)
- * Referans: doc/11-DB-SCHEMA.md
  */
 
 import {

@@ -1,6 +1,5 @@
 /**
  * Admin Dashboard
- * Referans: 03-UI-FLOWS.md
  */
 
 import { db, attendances } from "@/lib/db";

@@ -277,9 +277,9 @@ export default function DetailedReportPage() {
                                         <td className="px-3 py-2">{row.grup}</td>
                                         <td className="px-3 py-2 border-r">
                                             <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${row.personelDurumu === 'CALISAN' ? 'bg-green-100 text-green-800' :
-                                                    row.personelDurumu === 'AYRILDI' ? 'bg-red-100 text-red-800' :
-                                                        row.personelDurumu === 'PASIF' ? 'bg-gray-200 text-gray-600' :
-                                                            'bg-yellow-100 text-yellow-800'
+                                                row.personelDurumu === 'AYRILDI' ? 'bg-red-100 text-red-800' :
+                                                    row.personelDurumu === 'PASIF' ? 'bg-gray-200 text-gray-600' :
+                                                        'bg-yellow-100 text-yellow-800'
                                                 }`}>
                                                 {row.personelDurumu}
                                             </span>
@@ -329,7 +329,7 @@ export default function DetailedReportPage() {
 
             {/* Footer Info */}
             <div className="flex justify-between items-center text-sm text-gray-500 px-1">
-                <span>Referans: 06-DETAIL-TABLE-FINAL.md</span>
+                <span>Detaylı Katılım Listesi</span>
                 <span>Toplam Kayıt: <strong className="text-gray-800">{totalRecords}</strong> | Toplam Dakika: <strong className="text-blue-600">{totalMinutes.toLocaleString('tr-TR')}</strong></span>
             </div>
         </div>

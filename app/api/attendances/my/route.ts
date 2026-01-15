@@ -1,7 +1,6 @@
 /**
  * Şef Kendi Kayıtları API
  * GET /api/attendances/my
- * Referans: 13-API-SPEC.md
  * Yetki: ŞEF
  */
 

@@ -1,7 +1,6 @@
 /**
  * Personel Arama API
  * GET /api/personnel/search?query=...
- * Referans: 13-API-SPEC.md
  * Yetki: ŞEF, ADMIN
  */
 

@@ -1,7 +1,6 @@
 /**
  * Eğitim Listesi API
  * GET /api/trainings
- * Referans: 13-API-SPEC.md
  * Yetki: ŞEF, ADMIN
  */
 

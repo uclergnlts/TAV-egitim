@@ -1,7 +1,6 @@
 /**
  * Login API Endpoint
  * POST /api/auth/login
- * Referans: 13-API-SPEC.md
  */
 
 import { NextRequest, NextResponse } from "next/server";

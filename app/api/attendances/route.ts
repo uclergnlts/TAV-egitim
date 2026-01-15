@@ -1,7 +1,6 @@
 /**
  * Katılım Kayıt API (Batch)
  * POST /api/attendances - Yeni katılım kayıtları oluştur (ŞEF)
- * Referans: 13-API-SPEC.md, 06-DETAIL-TABLE-FINAL.md
  */
 
 import { NextRequest, NextResponse } from "next/server";

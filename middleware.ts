@@ -1,7 +1,6 @@
 /**
  * Next.js Middleware
  * Rol bazlı yetkilendirme ve route koruması
- * Referans: 04-ACCESS-CONTROL.md, 16-PERMISSION-MATRIX.md
  */
 
 import { NextResponse } from "next/server";

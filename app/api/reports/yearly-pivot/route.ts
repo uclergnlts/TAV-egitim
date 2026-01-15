@@ -1,7 +1,6 @@
 /**
  * Yıllık Pivot Rapor API
  * GET /api/reports/yearly-pivot?year=2026
- * Referans: 13-API-SPEC.md, 08-YEARLY-PIVOT-TABLE.md
  * Yetki: ADMIN
  */
 

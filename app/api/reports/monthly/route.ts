@@ -1,7 +1,6 @@
 /**
  * Aylık Rapor API
  * GET /api/reports/monthly?year=2026&month=5
- * Referans: 13-API-SPEC.md, 07-MONTHLY-GENERAL-TABLE.md
  * Yetki: ADMIN
  */
 
