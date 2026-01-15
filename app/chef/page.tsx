@@ -436,7 +436,7 @@ export default function ChefDashboard() {
                                 <select
                                     value={selectedTrainingId}
                                     onChange={handleTrainingChange}
-                                    className="w-full h-12 border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500 text-base px-3"
+                                    className="w-full h-11 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm px-3 bg-white"
                                 >
                                     <option value="">Seçiniz...</option>
                                     {trainings.map(t => (
@@ -451,7 +451,7 @@ export default function ChefDashboard() {
                                     <select
                                         value={selectedTopicId}
                                         onChange={(e) => setSelectedTopicId(e.target.value)}
-                                        className="w-full h-11 border border-yellow-300 rounded-lg bg-white"
+                                        className="w-full h-11 border border-yellow-300 rounded-lg bg-white px-3 text-sm focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400"
                                     >
                                         <option value="">Alt Başlık Seçiniz...</option>
                                         {selectedTraining.topics.map(topic => (
@@ -467,7 +467,7 @@ export default function ChefDashboard() {
                                     <select
                                         value={selectedTrainerId}
                                         onChange={(e) => setSelectedTrainerId(e.target.value)}
-                                        className="w-full h-11 border border-gray-300 rounded-lg px-3"
+                                        className="w-full h-11 border border-gray-300 rounded-lg px-3 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                     >
                                         <option value="">Seçiniz</option>
                                         {trainers.map(t => (
@@ -480,7 +480,7 @@ export default function ChefDashboard() {
                                     <select
                                         value={locationType}
                                         onChange={(e) => setLocationType(e.target.value)}
-                                        className="w-full h-11 border border-gray-300 rounded-lg px-3"
+                                        className="w-full h-11 border border-gray-300 rounded-lg px-3 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                     >
                                         <option value="IC">İç Eğitim</option>
                                         <option value="DIS">Dış Eğitim</option>
@@ -491,7 +491,7 @@ export default function ChefDashboard() {
                                     <select
                                         value={trainingLocation}
                                         onChange={(e) => setTrainingLocation(e.target.value)}
-                                        className="w-full h-11 border border-gray-300 rounded-lg px-3"
+                                        className="w-full h-11 border border-gray-300 rounded-lg px-3 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                     >
                                         <option value="">Seçiniz</option>
                                         {locations.map(loc => (
@@ -504,7 +504,7 @@ export default function ChefDashboard() {
                                     <select
                                         value={documentType}
                                         onChange={(e) => setDocumentType(e.target.value)}
-                                        className="w-full h-11 border border-gray-300 rounded-lg px-3"
+                                        className="w-full h-11 border border-gray-300 rounded-lg px-3 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                     >
                                         <option value="">Seçiniz</option>
                                         {documentTypes.map(doc => (
@@ -526,15 +526,15 @@ export default function ChefDashboard() {
                         </div>
                         <div className="p-6">
                             <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
+                                <div className="space-y-3">
                                     <label className="block text-xs font-bold text-gray-500 uppercase">Başlangıç</label>
-                                    <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full border border-gray-300 rounded-lg text-sm px-3 py-2" />
-                                    <input type="time" value={startTime} onChange={(e) => handleStartTimeChange(e.target.value)} className="w-full border border-gray-300 rounded-lg text-lg font-bold px-3 py-2" />
+                                    <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full h-11 border border-gray-300 rounded-lg text-sm px-3 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                                    <input type="time" value={startTime} onChange={(e) => handleStartTimeChange(e.target.value)} className="w-full h-11 border border-gray-300 rounded-lg text-base font-semibold px-3 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
                                 </div>
-                                <div className="space-y-2">
+                                <div className="space-y-3">
                                     <label className="block text-xs font-bold text-gray-500 uppercase">Bitiş</label>
-                                    <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full border border-gray-300 rounded-lg text-sm px-3 py-2" />
-                                    <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="w-full border border-gray-300 rounded-lg text-lg font-bold px-3 py-2" />
+                                    <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full h-11 border border-gray-300 rounded-lg text-sm px-3 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                                    <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="w-full h-11 border border-gray-300 rounded-lg text-base font-semibold px-3 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
                                 </div>
                             </div>
                             {/* Duration Helper */}
@@ -556,7 +556,7 @@ export default function ChefDashboard() {
                                 value={sicilNos}
                                 onChange={(e) => setSicilNos(e.target.value)}
                                 placeholder="Her satıra bir sicil no gelecek şekilde yapıştırın..."
-                                className="w-full flex-1 border border-gray-300 rounded-xl p-3 resize-none font-mono text-sm focus:ring-2 focus:ring-blue-500"
+                                className="w-full flex-1 border border-gray-300 rounded-lg p-3 resize-none font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                             />
                             <div className="mt-2 text-right">
                                 <button onClick={() => setSicilNos("")} className="text-xs text-red-500 hover:text-red-700">Temizle</button>
