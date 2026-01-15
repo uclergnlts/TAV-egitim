@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { MONTHS_TR } from "@/lib/utils";
+import * as XLSX from "xlsx";
 
 interface PivotRow {
     training_id: string;
@@ -47,22 +48,80 @@ export default function YearlyPivotPage() {
         }
     };
 
+    const exportToExcel = () => {
+        if (!data?.rows.length) return;
+
+        // Prepare header row
+        const headers = ["Eğitim Kodu", "Eğitim Adı", "Süre (dk)", ...MONTHS_TR, "Toplam Katılım", "Toplam Dakika"];
+
+        // Prepare data rows
+        const rows = data.rows.map(row => [
+            row.training_code,
+            row.training_name,
+            row.duration_min,
+            ...row.months.map(m => m || ""),
+            row.total_participation,
+            row.total_minutes,
+        ]);
+
+        // Add totals row
+        rows.push([
+            "TOPLAM",
+            "",
+            "",
+            ...data.month_totals.map(t => t || ""),
+            data.grand_total_participation,
+            data.grand_total_minutes,
+        ]);
+
+        // Create worksheet
+        const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+
+        // Set column widths
+        ws['!cols'] = [
+            { wch: 15 }, // Eğitim Kodu
+            { wch: 30 }, // Eğitim Adı
+            { wch: 10 }, // Süre
+            ...Array(12).fill({ wch: 8 }), // Months
+            { wch: 12 }, // Toplam Katılım
+            { wch: 12 }, // Toplam Dakika
+        ];
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, `Pivot ${year}`);
+        XLSX.writeFile(wb, `Yillik_Pivot_Tablo_${year}.xlsx`);
+    };
+
     const years = Array.from({ length: 10 }, (_, i) => currentYear - 5 + i);
 
     return (
         <div>
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
                 <h1 className="text-2xl font-bold text-gray-900">Yıllık Pivot Tablo</h1>
 
-                <select
-                    value={year}
-                    onChange={(e) => setYear(parseInt(e.target.value))}
-                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                >
-                    {years.map((y) => (
-                        <option key={y} value={y}>{y}</option>
-                    ))}
-                </select>
+                <div className="flex items-center gap-2">
+                    <select
+                        value={year}
+                        onChange={(e) => setYear(parseInt(e.target.value))}
+                        className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    >
+                        {years.map((y) => (
+                            <option key={y} value={y}>{y}</option>
+                        ))}
+                    </select>
+
+                    <button
+                        onClick={exportToExcel}
+                        disabled={!data?.rows.length}
+                        className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 font-medium flex items-center gap-2 disabled:opacity-50"
+                        title="Excel olarak indir"
+                    >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <span className="hidden sm:inline">Excel</span>
+                    </button>
+                </div>
             </div>
 
             {/* Summary Cards */}
