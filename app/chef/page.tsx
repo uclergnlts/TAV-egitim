@@ -704,19 +704,18 @@ export default function ChefDashboard() {
                                         {/* PERSONNEL COL */}
                                         <td className="px-6 py-4">
                                             <div className="group relative">
-                                                <div className="flex flex-wrap gap-1 max-w-xs">
-                                                    {record.personnel_details.slice(0, 3).map(p => (
-                                                        <span key={p.sicil_no} className={`px-2 py-0.5 rounded text-[10px] font-medium border ${p.found ? 'bg-green-50 text-green-700 border-green-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
-                                                            {p.fullName}
-                                                        </span>
+                                                <div className="flex flex-col gap-1.5 max-w-sm">
+                                                    {record.personnel_details.map(p => (
+                                                        <div key={p.sicil_no} className={`flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs border ${p.found ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="font-mono font-bold">{p.sicil_no}</span>
+                                                                <span className="w-px h-3 bg-current opacity-30"></span>
+                                                                <span className="font-medium">{p.fullName}</span>
+                                                            </div>
+                                                            <span className="text-[10px] opacity-70 ml-2">{p.gorevi}</span>
+                                                        </div>
                                                     ))}
-                                                    {record.personnel_details.length > 3 && (
-                                                        <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-[10px] border border-gray-200">
-                                                            +{record.personnel_details.length - 3}
-                                                        </span>
-                                                    )}
                                                 </div>
-                                                <div className="text-xs text-gray-400 mt-1">Toplam {record.personnel_details.length} kişi</div>
 
                                                 <button
                                                     onClick={() => openEditModal(record, 'PERSONNEL')}
