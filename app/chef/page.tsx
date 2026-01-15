@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import * as XLSX from "xlsx";
+import { exportToPDF } from "@/lib/pdfExport";
 
 // Icons
 const EditIcon = ({ className }: { className?: string }) => (
@@ -436,6 +438,74 @@ export default function ChefDashboard() {
         }
     };
 
+    // --- EXPORT FUNCTIONS ---
+
+    const exportPendingToExcel = () => {
+        if (pendingRecords.length === 0) return;
+
+        const flatData: any[] = [];
+        pendingRecords.forEach(record => {
+            record.personnel_details.forEach(person => {
+                flatData.push({
+                    "Sicil No": person.sicil_no,
+                    "Ad Soyad": person.fullName,
+                    "Görevi": person.gorevi,
+                    "Eğitim": record.training_name,
+                    "Alt Başlık": record.training_topic_name || "",
+                    "Süre (dk)": record.duration,
+                    "Başlangıç Tarihi": record.baslama_tarihi,
+                    "Bitiş Tarihi": record.bitis_tarihi,
+                    "Başlangıç Saati": record.baslama_saati,
+                    "Bitiş Saati": record.bitis_saati,
+                    "Eğitmen": record.trainer_name,
+                    "Eğitim Yeri": record.egitim_yeri,
+                    "İç/Dış": record.ic_dis_egitim,
+                });
+            });
+        });
+
+        const ws = XLSX.utils.json_to_sheet(flatData);
+        const colWidths = Object.keys(flatData[0] || {}).map(() => ({ wch: 18 }));
+        ws['!cols'] = colWidths;
+
+        const wb = XLSX.utils.book_new();
+        const dateStr = new Date().toLocaleDateString('tr-TR').replace(/\./g, '-');
+        XLSX.utils.book_append_sheet(wb, ws, `Bekleyen Kayitlar`);
+        XLSX.writeFile(wb, `Egitim_Kayitlari_${dateStr}.xlsx`);
+    };
+
+    const exportPendingToPDF = () => {
+        if (pendingRecords.length === 0) return;
+
+        const headers = ["Sicil No", "Ad Soyad", "Görevi", "Eğitim", "Tarih", "Saat", "Eğitmen", "Yer"];
+        const rows: (string | number)[][] = [];
+
+        pendingRecords.forEach(record => {
+            record.personnel_details.forEach(person => {
+                rows.push([
+                    person.sicil_no,
+                    person.fullName,
+                    person.gorevi || "-",
+                    record.training_name + (record.training_topic_name ? ` (${record.training_topic_name})` : ""),
+                    record.baslama_tarihi,
+                    `${record.baslama_saati}-${record.bitis_saati}`,
+                    record.trainer_name,
+                    record.egitim_yeri,
+                ]);
+            });
+        });
+
+        const dateStr = new Date().toLocaleDateString('tr-TR');
+        exportToPDF({
+            title: "Eğitim Katılım Listesi",
+            subtitle: `Oluşturma Tarihi: ${dateStr} • Toplam ${rows.length} Kayıt`,
+            headers,
+            rows,
+            filename: `Egitim_Katilim_Listesi_${dateStr.replace(/\./g, '-')}`,
+            orientation: 'landscape',
+        });
+    };
+
     const selectedTraining = trainings.find(t => t.id === selectedTrainingId);
 
     return (
@@ -618,19 +688,42 @@ export default function ChefDashboard() {
             {/* PENDING LIST TABLE */}
             {pendingRecords.length > 0 && (
                 <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden mb-12 animate-slideUp">
-                    <div className="bg-gray-50 px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                    <div className="bg-gray-50 px-6 py-4 border-b border-gray-200 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                         <div>
                             <h2 className="text-xl font-bold text-gray-800">Eklenecek Kayıtlar</h2>
                             <p className="text-sm text-gray-500">Aşağıdaki tablodan detayları inceleyebilir ve düzenleyebilirsiniz.</p>
                         </div>
-                        {selectedRecordIds.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-2">
+                            {/* Export Buttons */}
                             <button
-                                onClick={handleBulkDelete}
-                                className="bg-red-100 text-red-700 px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-200 transition-colors"
+                                onClick={exportPendingToExcel}
+                                className="bg-green-50 text-green-700 px-3 py-2 rounded-lg text-sm font-medium hover:bg-green-100 transition-colors flex items-center gap-1.5"
+                                title="Excel olarak indir"
                             >
-                                Seçilenleri Sil ({selectedRecordIds.length})
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                <span className="hidden sm:inline">Excel</span>
                             </button>
-                        )}
+                            <button
+                                onClick={exportPendingToPDF}
+                                className="bg-red-50 text-red-700 px-3 py-2 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors flex items-center gap-1.5"
+                                title="PDF olarak indir"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                </svg>
+                                <span className="hidden sm:inline">PDF</span>
+                            </button>
+                            {selectedRecordIds.length > 0 && (
+                                <button
+                                    onClick={handleBulkDelete}
+                                    className="bg-red-100 text-red-700 px-3 py-2 rounded-lg text-sm font-bold hover:bg-red-200 transition-colors"
+                                >
+                                    Sil ({selectedRecordIds.length})
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     <div className="overflow-x-auto">
