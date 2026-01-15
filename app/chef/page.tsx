@@ -646,116 +646,123 @@ export default function ChefDashboard() {
                                         />
                                     </th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Eğitim Detayları</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tarih & Saat</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Katılımcılar</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sicil No</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ad Soyad</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Grubu</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Eğitmen / Yer</th>
                                     <th className="relative px-6 py-3">
                                         <span className="sr-only">İşlemler</span>
                                     </th>
                                 </tr>
                             </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {pendingRecords.map((record) => (
-                                    <tr key={record.id} className={`hover:bg-blue-50/30 transition-colors ${selectedRecordIds.includes(record.id) ? 'bg-blue-50' : ''}`}>
-                                        <td className="px-4 py-4 whitespace-nowrap">
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedRecordIds.includes(record.id)}
-                                                onChange={() => toggleSelectRecord(record.id)}
-                                                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                            />
-                                        </td>
+                            <tbody className="bg-white divide-y divide-gray-100">
+                                {pendingRecords.flatMap((record, recordIndex) =>
+                                    record.personnel_details.map((person, personIndex) => {
+                                        const isFirstOfGroup = personIndex === 0;
+                                        const rowSpan = record.personnel_details.length;
+                                        const rowKey = `${record.id}-${person.sicil_no}`;
 
-                                        {/* TRAINING COL */}
-                                        <td className="px-6 py-4">
-                                            <div className="group relative flex items-start gap-2">
-                                                <div>
-                                                    <div className="font-bold text-gray-900">{record.training_name}</div>
-                                                    {record.training_topic_name && <div className="text-xs text-orange-600 mt-1">{record.training_topic_name}</div>}
-                                                    <div className="text-xs text-gray-500 mt-1">{record.duration} dk</div>
-                                                </div>
-                                                <button
-                                                    onClick={() => openEditModal(record, 'TRAINING')}
-                                                    className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-blue-100 text-blue-600 rounded-md transition-all absolute -right-2 top-0"
-                                                    title="Eğitimi Düzenle"
-                                                >
-                                                    <EditIcon className="w-3.5 h-3.5" />
-                                                </button>
-                                            </div>
-                                        </td>
+                                        return (
+                                            <tr key={rowKey} className={`hover:bg-blue-50/30 transition-colors ${selectedRecordIds.includes(record.id) ? 'bg-blue-50' : ''} ${!isFirstOfGroup ? 'border-t border-gray-50' : ''}`}>
+                                                {/* CHECKBOX - only on first row of group */}
+                                                {isFirstOfGroup && (
+                                                    <td className="px-4 py-4 whitespace-nowrap" rowSpan={rowSpan}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedRecordIds.includes(record.id)}
+                                                            onChange={() => toggleSelectRecord(record.id)}
+                                                            className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                                        />
+                                                    </td>
+                                                )}
 
-                                        {/* DATE COL */}
-                                        <td className="px-6 py-4">
-                                            <div className="group relative flex items-start gap-2">
-                                                <div>
-                                                    <div className="text-sm text-gray-900 font-medium">{record.baslama_tarihi}</div>
-                                                    <div className="text-xs text-gray-500 mt-0.5">{record.baslama_saati} - {record.bitis_saati}</div>
-                                                </div>
-                                                <button
-                                                    onClick={() => openEditModal(record, 'DATE')}
-                                                    className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-blue-100 text-blue-600 rounded-md transition-all absolute -right-2 top-0"
-                                                    title="Tarihi Düzenle"
-                                                >
-                                                    <EditIcon className="w-3.5 h-3.5" />
-                                                </button>
-                                            </div>
-                                        </td>
-
-                                        {/* PERSONNEL COL */}
-                                        <td className="px-6 py-4">
-                                            <div className="group relative">
-                                                <div className="flex flex-col gap-1.5 max-w-sm">
-                                                    {record.personnel_details.map(p => (
-                                                        <div key={p.sicil_no} className={`flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs border ${p.found ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="font-mono font-bold">{p.sicil_no}</span>
-                                                                <span className="w-px h-3 bg-current opacity-30"></span>
-                                                                <span className="font-medium">{p.fullName}</span>
+                                                {/* TRAINING COL - only on first row of group */}
+                                                {isFirstOfGroup && (
+                                                    <td className="px-6 py-4" rowSpan={rowSpan}>
+                                                        <div className="group relative flex items-start gap-2">
+                                                            <div>
+                                                                <div className="font-bold text-gray-900">{record.training_name}</div>
+                                                                {record.training_topic_name && <div className="text-xs text-orange-600 mt-1">{record.training_topic_name}</div>}
+                                                                <div className="text-xs text-gray-500 mt-1">{record.duration} dk • {record.baslama_tarihi}</div>
+                                                                <div className="text-xs text-gray-400">{record.baslama_saati} - {record.bitis_saati}</div>
                                                             </div>
-                                                            <span className="text-[10px] opacity-70 ml-2">{p.gorevi}</span>
+                                                            <button
+                                                                onClick={() => openEditModal(record, 'TRAINING')}
+                                                                className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-blue-100 text-blue-600 rounded-md transition-all absolute -right-2 top-0"
+                                                                title="Eğitimi Düzenle"
+                                                            >
+                                                                <EditIcon className="w-3.5 h-3.5" />
+                                                            </button>
                                                         </div>
-                                                    ))}
-                                                </div>
+                                                    </td>
+                                                )}
 
-                                                <button
-                                                    onClick={() => openEditModal(record, 'PERSONNEL')}
-                                                    className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-blue-100 text-blue-600 rounded-md transition-all absolute -right-6 top-0"
-                                                    title="Katılımcıları Düzenle"
-                                                >
-                                                    <EditIcon className="w-3.5 h-3.5" />
-                                                </button>
-                                            </div>
-                                        </td>
+                                                {/* SICIL NO COL */}
+                                                <td className="px-6 py-3">
+                                                    <span className={`font-mono font-bold text-sm px-2 py-1 rounded ${person.found ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
+                                                        {person.sicil_no}
+                                                    </span>
+                                                </td>
 
-                                        {/* TRAINER COL */}
-                                        <td className="px-6 py-4">
-                                            <div className="group relative flex items-start gap-2">
-                                                <div>
-                                                    <div className="text-sm font-medium text-gray-900">{record.trainer_name}</div>
-                                                    <div className="text-xs text-gray-500 mt-0.5">{record.egitim_yeri} ({record.ic_dis_egitim})</div>
-                                                </div>
-                                                <button
-                                                    onClick={() => openEditModal(record, 'TRAINER')}
-                                                    className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-blue-100 text-blue-600 rounded-md transition-all absolute -right-2 top-0"
-                                                    title="Eğitmen/Yer Düzenle"
-                                                >
-                                                    <EditIcon className="w-3.5 h-3.5" />
-                                                </button>
-                                            </div>
-                                        </td>
+                                                {/* AD SOYAD COL */}
+                                                <td className="px-6 py-3">
+                                                    <span className={`font-medium text-sm ${person.found ? 'text-gray-900' : 'text-red-500'}`}>
+                                                        {person.fullName}
+                                                    </span>
+                                                </td>
 
-                                        {/* ACTIONS */}
-                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                            <button
-                                                onClick={() => handleRemoveFromList(record.id)}
-                                                className="text-red-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-lg transition-colors"
-                                                title="Listeden Kaldır"
-                                            >
-                                                <TrashIcon className="w-5 h-5" />
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
+                                                {/* GRUBU COL */}
+                                                <td className="px-6 py-3">
+                                                    <span className="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded">
+                                                        {person.gorevi || '-'}
+                                                    </span>
+                                                </td>
+
+                                                {/* TRAINER COL - only on first row of group */}
+                                                {isFirstOfGroup && (
+                                                    <td className="px-6 py-4" rowSpan={rowSpan}>
+                                                        <div className="group relative flex items-start gap-2">
+                                                            <div>
+                                                                <div className="text-sm font-medium text-gray-900">{record.trainer_name}</div>
+                                                                <div className="text-xs text-gray-500 mt-0.5">{record.egitim_yeri}</div>
+                                                                <div className="text-xs text-gray-400">({record.ic_dis_egitim})</div>
+                                                            </div>
+                                                            <button
+                                                                onClick={() => openEditModal(record, 'TRAINER')}
+                                                                className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-blue-100 text-blue-600 rounded-md transition-all absolute -right-2 top-0"
+                                                                title="Eğitmen/Yer Düzenle"
+                                                            >
+                                                                <EditIcon className="w-3.5 h-3.5" />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                )}
+
+                                                {/* ACTIONS - only on first row of group */}
+                                                {isFirstOfGroup && (
+                                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" rowSpan={rowSpan}>
+                                                        <div className="flex flex-col gap-2 items-end">
+                                                            <button
+                                                                onClick={() => openEditModal(record, 'PERSONNEL')}
+                                                                className="text-blue-500 hover:text-blue-700 p-2 hover:bg-blue-50 rounded-lg transition-colors"
+                                                                title="Katılımcıları Düzenle"
+                                                            >
+                                                                <EditIcon className="w-4 h-4" />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleRemoveFromList(record.id)}
+                                                                className="text-red-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-lg transition-colors"
+                                                                title="Listeden Kaldır"
+                                                            >
+                                                                <TrashIcon className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                )}
+                                            </tr>
+                                        );
+                                    })
+                                )}
                             </tbody>
                         </table>
                     </div>
