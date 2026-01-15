@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { MONTHS_TR } from "@/lib/utils";
+import { useToast } from "@/components/ToastProvider";
 import * as XLSX from "xlsx";
 
 interface AttendanceRow {
@@ -43,6 +44,7 @@ export default function MonthlyReportPage() {
     const [loading, setLoading] = useState(false);
     const [deleteId, setDeleteId] = useState<string | null>(null);
     const [deleteLoading, setDeleteLoading] = useState(false);
+    const toast = useToast();
 
     useEffect(() => {
         loadData();
@@ -71,14 +73,15 @@ export default function MonthlyReportPage() {
             });
             const result = await res.json();
             if (result.success) {
+                toast.success("Kayıt başarıyla silindi");
                 loadData();
                 setDeleteId(null);
             } else {
-                alert(result.message || "Silme işlemi başarısız");
+                toast.error(result.message || "Silme işlemi başarısız");
             }
         } catch (err) {
             console.error("Delete failed:", err);
-            alert("Silme işlemi başarısız");
+            toast.error("Silme işlemi başarısız");
         } finally {
             setDeleteLoading(false);
         }
@@ -250,9 +253,9 @@ export default function MonthlyReportPage() {
                                         <td className="px-3 py-2">{row.grup}</td>
                                         <td className="px-3 py-2 border-r">
                                             <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${row.personel_durumu === 'CALISAN' ? 'bg-green-100 text-green-800' :
-                                                    row.personel_durumu === 'AYRILDI' ? 'bg-red-100 text-red-800' :
-                                                        row.personel_durumu === 'PASIF' ? 'bg-gray-200 text-gray-600' :
-                                                            'bg-yellow-100 text-yellow-800'
+                                                row.personel_durumu === 'AYRILDI' ? 'bg-red-100 text-red-800' :
+                                                    row.personel_durumu === 'PASIF' ? 'bg-gray-200 text-gray-600' :
+                                                        'bg-yellow-100 text-yellow-800'
                                                 }`}>
                                                 {row.personel_durumu}
                                             </span>
