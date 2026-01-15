@@ -1,9 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // Mock Response
-global.Response = class {
+global.Response = class MockResponse {
+    body: any;
+    status: number;
+    headers: Map<string, string>;
+
     static json(data: any, init?: any) {
-        return new Response(JSON.stringify(data), {
+        return new MockResponse(JSON.stringify(data), {
             ...init,
             headers: { 'Content-Type': 'application/json', ...init?.headers }
         })

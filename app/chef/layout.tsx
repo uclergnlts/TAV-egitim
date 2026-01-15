@@ -3,6 +3,9 @@
  * Handles session and redirects, delegates to client component for UI
  */
 
+// Force dynamic rendering (no static prerendering)
+export const dynamic = 'force-dynamic';
+
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import ChefLayoutClient from "./ChefLayoutClient";
