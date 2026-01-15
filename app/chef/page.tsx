@@ -276,7 +276,7 @@ export default function ChefDashboard() {
             });
             const data = await res.json();
             if (data.success) {
-                const foundMap = new Map(data.data.map((p: any) => [p.sicil_no, p]));
+                const foundMap = new Map<string, any>(data.data.map((p: any) => [p.sicil_no, p]));
                 return sicils.map(sicil => {
                     const found = foundMap.get(sicil);
                     return found
