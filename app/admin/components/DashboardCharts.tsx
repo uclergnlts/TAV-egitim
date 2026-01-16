@@ -176,8 +176,8 @@ export default function DashboardCharts() {
                                 paddingAngle={2}
                                 dataKey="count"
                                 nameKey="egitimKodu"
-                                label={({ egitimKodu, percent }) =>
-                                    `${egitimKodu} (${(percent * 100).toFixed(0)}%)`
+                                label={({ name, percent }: { name?: string; percent?: number }) =>
+                                    `${name || ''} (${((percent || 0) * 100).toFixed(0)}%)`
                                 }
                                 labelLine={false}
                             >
@@ -224,7 +224,7 @@ export default function DashboardCharts() {
                                         cy="50%"
                                         outerRadius={50}
                                         dataKey="value"
-                                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                                        label={({ name, percent }: { name?: string; percent?: number }) => `${name || ''}: ${((percent || 0) * 100).toFixed(0)}%`}
                                         labelLine={false}
                                     >
                                         <Cell fill="#3B82F6" />
@@ -249,7 +249,7 @@ export default function DashboardCharts() {
                                         cy="50%"
                                         outerRadius={50}
                                         dataKey="value"
-                                        label={({ name }) => name}
+                                        label={({ name }: { name?: string }) => name || ''}
                                         labelLine={false}
                                     >
                                         {data.personnelStatusDist.map((_, index) => (
