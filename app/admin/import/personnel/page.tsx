@@ -23,10 +23,34 @@ export default function PersonnelImportPage() {
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState<any>(null);
 
+    const downloadTemplate = () => {
+        const template = [
+            {
+                "Sicil No": "12345",
+                "Ad Soyad": "Ahmet Yılmaz",
+                "TC Kimlik": "12345678901",
+                "Görevi": "Teknisyen",
+                "Proje": "TAV İstanbul",
+                "Grup": "A Grubu",
+                "Durum": "CALISAN",
+                "Cinsiyet": "ERKEK",
+                "Telefon": "05551234567",
+                "Doğum Tarihi": "1990-01-15",
+                "Adres": "İstanbul"
+            }
+        ];
+
+        const ws = XLSX.utils.json_to_sheet(template);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Personeller");
+        XLSX.writeFile(wb, "personel_import_sablonu.xlsx");
+    };
+
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = e.target.files?.[0];
         if (selectedFile) {
             setFile(selectedFile);
+            setResult(null);
             parseFile(selectedFile);
         }
     };
@@ -42,8 +66,8 @@ export default function PersonnelImportPage() {
 
             // Map Excel columns to our fields
             const mapped: ImportRow[] = jsonData.map((row: any) => ({
-                sicilNo: row["Sicil No"] || row["sicilNo"] || row["SicilNo"],
-                fullName: row["Ad Soyad"] || row["fullName"] || row["AdSoyad"],
+                sicilNo: String(row["Sicil No"] || row["sicilNo"] || row["SicilNo"] || "").trim(),
+                fullName: String(row["Ad Soyad"] || row["fullName"] || row["AdSoyad"] || "").trim(),
                 tcKimlikNo: row["TC Kimlik"] || row["tcKimlikNo"],
                 gorevi: row["Görevi"] || row["gorevi"],
                 projeAdi: row["Proje"] || row["projeAdi"],
@@ -83,7 +107,21 @@ export default function PersonnelImportPage() {
 
     return (
         <div className="space-y-6">
-            <h1 className="text-2xl font-bold text-gray-800">Personel Import (Excel/CSV)</h1>
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-800">Personel Import (Excel)</h1>
+                    <p className="text-gray-500 text-sm mt-1">Excel dosyasından toplu personel yükleyin</p>
+                </div>
+                <button
+                    onClick={downloadTemplate}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Şablon İndir
+                </button>
+            </div>
 
             <div className="bg-white rounded-xl shadow-sm border p-6">
                 <div className="mb-4">
@@ -98,38 +136,65 @@ export default function PersonnelImportPage() {
                     />
                 </div>
 
-                <div className="mb-4 p-4 bg-gray-50 rounded-lg text-sm text-gray-600">
-                    <strong>Gerekli Sütunlar:</strong> Sicil No, Ad Soyad<br />
-                    <strong>Opsiyonel:</strong> TC Kimlik, Görevi, Proje, Grup, Durum, Cinsiyet, Telefon, Doğum Tarihi, Adres
+                <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
+                    <h3 className="font-semibold text-blue-800 mb-2">📋 Excel Sütun Formatı</h3>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <p className="font-medium text-gray-700">Zorunlu Alanlar:</p>
+                            <ul className="list-disc list-inside text-gray-600 ml-2">
+                                <li><code className="bg-white px-1 rounded">Sicil No</code></li>
+                                <li><code className="bg-white px-1 rounded">Ad Soyad</code></li>
+                            </ul>
+                        </div>
+                        <div>
+                            <p className="font-medium text-gray-700">Opsiyonel Alanlar:</p>
+                            <ul className="list-disc list-inside text-gray-600 ml-2">
+                                <li><code className="bg-white px-1 rounded">TC Kimlik</code>, <code className="bg-white px-1 rounded">Görevi</code></li>
+                                <li><code className="bg-white px-1 rounded">Proje</code>, <code className="bg-white px-1 rounded">Grup</code>, <code className="bg-white px-1 rounded">Durum</code></li>
+                                <li><code className="bg-white px-1 rounded">Cinsiyet</code>, <code className="bg-white px-1 rounded">Telefon</code>, <code className="bg-white px-1 rounded">Adres</code></li>
+                            </ul>
+                        </div>
+                    </div>
                 </div>
 
                 {previewData.length > 0 && (
                     <div className="mb-4">
-                        <h3 className="text-lg font-semibold mb-2">Önizleme ({previewData.length} kayıt)</h3>
-                        <div className="max-h-64 overflow-auto border rounded">
+                        <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
+                            <span className="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-sm">
+                                {previewData.length}
+                            </span>
+                            Önizleme
+                        </h3>
+                        <div className="max-h-80 overflow-auto border rounded-lg">
                             <table className="min-w-full divide-y divide-gray-200 text-sm">
-                                <thead className="bg-gray-50">
+                                <thead className="bg-gray-50 sticky top-0">
                                     <tr>
-                                        <th className="px-4 py-2 text-left">Sicil No</th>
-                                        <th className="px-4 py-2 text-left">Ad Soyad</th>
-                                        <th className="px-4 py-2 text-left">Görevi</th>
-                                        <th className="px-4 py-2 text-left">Grup</th>
+                                        <th className="px-4 py-3 text-left font-semibold text-gray-600">Sicil No</th>
+                                        <th className="px-4 py-3 text-left font-semibold text-gray-600">Ad Soyad</th>
+                                        <th className="px-4 py-3 text-left font-semibold text-gray-600">Görevi</th>
+                                        <th className="px-4 py-3 text-left font-semibold text-gray-600">Grup</th>
                                     </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-200">
-                                    {previewData.slice(0, 10).map((row, i) => (
-                                        <tr key={i}>
-                                            <td className="px-4 py-2">{row.sicilNo}</td>
-                                            <td className="px-4 py-2">{row.fullName}</td>
-                                            <td className="px-4 py-2">{row.gorevi || "-"}</td>
-                                            <td className="px-4 py-2">{row.grup || "-"}</td>
+                                <tbody className="divide-y divide-gray-100 bg-white">
+                                    {previewData.slice(0, 20).map((row, i) => (
+                                        <tr key={i} className="hover:bg-gray-50">
+                                            <td className="px-4 py-2">
+                                                <span className="font-mono bg-gray-100 px-2 py-0.5 rounded text-xs">
+                                                    {row.sicilNo}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-2 font-medium text-gray-800">{row.fullName}</td>
+                                            <td className="px-4 py-2 text-gray-600">{row.gorevi || "-"}</td>
+                                            <td className="px-4 py-2 text-gray-500">{row.grup || "-"}</td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
                         </div>
-                        {previewData.length > 10 && (
-                            <p className="text-xs text-gray-500 mt-1">...ve {previewData.length - 10} kayıt daha</p>
+                        {previewData.length > 20 && (
+                            <p className="text-xs text-gray-500 mt-2 text-center">
+                                ...ve {previewData.length - 20} kayıt daha
+                            </p>
                         )}
                     </div>
                 )}
@@ -137,22 +202,55 @@ export default function PersonnelImportPage() {
                 <button
                     onClick={handleImport}
                     disabled={loading || previewData.length === 0}
-                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:shadow-lg hover:shadow-blue-500/25 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all flex items-center justify-center gap-2"
                 >
-                    {loading ? "İşleniyor..." : `${previewData.length} Kaydı İçeri Aktar`}
+                    {loading ? (
+                        <>
+                            <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                            İşleniyor...
+                        </>
+                    ) : (
+                        <>
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                            </svg>
+                            {previewData.length} Personeli İçeri Aktar
+                        </>
+                    )}
                 </button>
 
                 {result && (
-                    <div className={`mt-4 p-4 rounded-lg ${result.success ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"}`}>
-                        <p className="font-semibold">{result.message}</p>
+                    <div className={`mt-4 p-4 rounded-lg ${result.success ? "bg-green-50 border border-green-200" : "bg-red-50 border border-red-200"}`}>
+                        <p className={`font-semibold ${result.success ? "text-green-800" : "text-red-800"}`}>
+                            {result.success ? "✅ " : "❌ "}{result.message}
+                        </p>
                         {result.data && (
-                            <ul className="text-sm mt-2">
-                                <li>Yeni Oluşturulan: {result.data.created}</li>
-                                <li>Güncellenen: {result.data.updated}</li>
-                                {result.data.errors?.length > 0 && (
-                                    <li className="text-red-600">Hatalar: {result.data.errors.length}</li>
-                                )}
-                            </ul>
+                            <div className="mt-3 grid grid-cols-2 gap-4 text-sm">
+                                <div className="bg-white p-3 rounded-lg text-center">
+                                    <p className="text-2xl font-bold text-green-600">{result.data.created}</p>
+                                    <p className="text-gray-500">Yeni Oluşturulan</p>
+                                </div>
+                                <div className="bg-white p-3 rounded-lg text-center">
+                                    <p className="text-2xl font-bold text-blue-600">{result.data.updated}</p>
+                                    <p className="text-gray-500">Güncellenen</p>
+                                </div>
+                            </div>
+                        )}
+                        {result.data?.errors?.length > 0 && (
+                            <div className="mt-3 p-3 bg-red-100 rounded-lg">
+                                <p className="font-medium text-red-700 mb-1">Hatalar:</p>
+                                <ul className="text-sm text-red-600 list-disc list-inside">
+                                    {result.data.errors.slice(0, 5).map((err: any, i: number) => (
+                                        <li key={i}>Satır {err.row}: {err.message}</li>
+                                    ))}
+                                    {result.data.errors.length > 5 && (
+                                        <li>...ve {result.data.errors.length - 5} hata daha</li>
+                                    )}
+                                </ul>
+                            </div>
                         )}
                     </div>
                 )}

@@ -4,45 +4,20 @@ import { useState } from "react";
 import * as XLSX from "xlsx";
 
 interface ImportRow {
-    sicilNo: string;
-    egitimKodu: string;
-    baslamaTarihi: string;
-    bitisTarihi?: string;
-    baslamaSaati?: string;
-    bitisSaati?: string;
-    egitimYeri?: string;
-    icDisEgitim?: string;
-    sonucBelgesiTuru?: string;
-    egitmenSicil?: string;
+    code: string;
+    name: string;
+    duration_min: number;
+    category: string;
+    default_location?: string;
+    default_document_type?: string;
+    topics?: string;
 }
 
-export default function AttendanceImportPage() {
+export default function TrainingsImportPage() {
     const [file, setFile] = useState<File | null>(null);
     const [previewData, setPreviewData] = useState<ImportRow[]>([]);
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState<any>(null);
-
-    const downloadTemplate = () => {
-        const template = [
-            {
-                "Sicil No": "12345",
-                "Eğitim Kodu": "M90",
-                "Başlama Tarihi": "2025-01-15",
-                "Bitiş Tarihi": "2025-01-15",
-                "Başlama Saati": "09:00",
-                "Bitiş Saati": "12:00",
-                "Eğitim Yeri": "Eğitim Salonu",
-                "İç/Dış": "IC",
-                "Belge Türü": "EGITIM_KATILIM_CIZELGESI",
-                "Eğitmen Sicil": "54321"
-            }
-        ];
-
-        const ws = XLSX.utils.json_to_sheet(template);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Katılımlar");
-        XLSX.writeFile(wb, "katilim_import_sablonu.xlsx");
-    };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = e.target.files?.[0];
@@ -62,33 +37,20 @@ export default function AttendanceImportPage() {
             const worksheet = workbook.Sheets[sheetName];
             const jsonData = XLSX.utils.sheet_to_json<any>(worksheet);
 
-            // Map Excel columns
+            // Map Excel columns to our fields
             const mapped: ImportRow[] = jsonData.map((row: any) => ({
-                sicilNo: String(row["Sicil No"] || row["sicilNo"] || row["SicilNo"] || "").trim(),
-                egitimKodu: String(row["Eğitim Kodu"] || row["egitimKodu"] || row["EgitimKodu"] || "").trim(),
-                baslamaTarihi: formatDate(row["Başlama Tarihi"] || row["baslamaTarihi"]),
-                bitisTarihi: formatDate(row["Bitiş Tarihi"] || row["bitisTarihi"]),
-                baslamaSaati: row["Başlama Saati"] || row["baslamaSaati"],
-                bitisSaati: row["Bitiş Saati"] || row["bitisSaati"],
-                egitimYeri: row["Eğitim Yeri"] || row["egitimYeri"],
-                icDisEgitim: row["İç/Dış"] || row["icDisEgitim"],
-                sonucBelgesiTuru: row["Belge Türü"] || row["sonucBelgesiTuru"],
-                egitmenSicil: row["Eğitmen Sicil"] || row["egitmenSicil"],
+                code: String(row["Kod"] || row["code"] || row["Eğitim Kodu"] || "").trim(),
+                name: String(row["Ad"] || row["name"] || row["Eğitim Adı"] || "").trim(),
+                duration_min: parseInt(row["Süre"] || row["duration_min"] || row["Süre (dk)"] || "60", 10),
+                category: String(row["Kategori"] || row["category"] || "TEMEL").toUpperCase().trim(),
+                default_location: row["Yer"] || row["default_location"] || row["Eğitim Yeri"],
+                default_document_type: row["Belge Türü"] || row["default_document_type"],
+                topics: String(row["Alt Başlıklar"] || row["topics"] || row["Alt Konular"] || "").trim(),
             }));
 
-            setPreviewData(mapped.filter(r => r.sicilNo && r.egitimKodu && r.baslamaTarihi));
+            setPreviewData(mapped.filter(r => r.code && r.name));
         };
         reader.readAsArrayBuffer(file);
-    };
-
-    const formatDate = (val: any): string => {
-        if (!val) return "";
-        if (typeof val === "number") {
-            // Excel serial date
-            const date = XLSX.SSF.parse_date_code(val);
-            return `${date.y}-${String(date.m).padStart(2, "0")}-${String(date.d).padStart(2, "0")}`;
-        }
-        return String(val);
     };
 
     const handleImport = async () => {
@@ -98,7 +60,7 @@ export default function AttendanceImportPage() {
         setResult(null);
 
         try {
-            const res = await fetch("/api/import/attendance", {
+            const res = await fetch("/api/import/trainings", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ data: previewData })
@@ -112,12 +74,30 @@ export default function AttendanceImportPage() {
         }
     };
 
+    const downloadTemplate = () => {
+        const template = [
+            {
+                "Kod": "M90",
+                "Ad": "Örnek Eğitim",
+                "Süre (dk)": 60,
+                "Kategori": "TEMEL",
+                "Yer": "Eğitim Salonu",
+                "Alt Başlıklar": "Giriş, Temel Kavramlar, Uygulama"
+            }
+        ];
+
+        const ws = XLSX.utils.json_to_sheet(template);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Eğitimler");
+        XLSX.writeFile(wb, "egitim_import_sablonu.xlsx");
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-800">Katılım Import (Excel)</h1>
-                    <p className="text-gray-500 text-sm mt-1">Excel dosyasından toplu katılım kaydı yükleyin</p>
+                    <h1 className="text-2xl font-bold text-gray-800">Eğitim Import (Excel)</h1>
+                    <p className="text-gray-500 text-sm mt-1">Excel dosyasından toplu eğitim ve alt başlık yükleyin</p>
                 </div>
                 <button
                     onClick={downloadTemplate}
@@ -139,36 +119,38 @@ export default function AttendanceImportPage() {
                         type="file"
                         accept=".xlsx,.xls,.csv"
                         onChange={handleFileChange}
-                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
+                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                     />
                 </div>
 
-                <div className="mb-4 p-4 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-lg border border-emerald-100">
-                    <h3 className="font-semibold text-emerald-800 mb-2">📋 Excel Sütun Formatı</h3>
+                <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
+                    <h3 className="font-semibold text-blue-800 mb-2">📋 Excel Sütun Formatı</h3>
                     <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
                             <p className="font-medium text-gray-700">Zorunlu Alanlar:</p>
                             <ul className="list-disc list-inside text-gray-600 ml-2">
-                                <li><code className="bg-white px-1 rounded">Sicil No</code></li>
-                                <li><code className="bg-white px-1 rounded">Eğitim Kodu</code></li>
-                                <li><code className="bg-white px-1 rounded">Başlama Tarihi</code> (YYYY-MM-DD)</li>
+                                <li><code className="bg-white px-1 rounded">Kod</code> - Eğitim kodu (Örn: M90)</li>
+                                <li><code className="bg-white px-1 rounded">Ad</code> - Eğitim adı</li>
                             </ul>
                         </div>
                         <div>
                             <p className="font-medium text-gray-700">Opsiyonel Alanlar:</p>
                             <ul className="list-disc list-inside text-gray-600 ml-2">
-                                <li><code className="bg-white px-1 rounded">Bitiş Tarihi</code>, <code className="bg-white px-1 rounded">Saatler</code></li>
-                                <li><code className="bg-white px-1 rounded">Eğitim Yeri</code>, <code className="bg-white px-1 rounded">İç/Dış</code></li>
-                                <li><code className="bg-white px-1 rounded">Belge Türü</code>, <code className="bg-white px-1 rounded">Eğitmen Sicil</code></li>
+                                <li><code className="bg-white px-1 rounded">Süre (dk)</code> - Dakika (varsayılan: 60)</li>
+                                <li><code className="bg-white px-1 rounded">Kategori</code> - TEMEL, TAZELEME, DIGER</li>
+                                <li><code className="bg-white px-1 rounded">Alt Başlıklar</code> - Virgülle ayrılmış</li>
                             </ul>
                         </div>
                     </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                        💡 Alt başlıkları virgülle ayırarak tek hücreye yazın. Örn: "Giriş, Temel Kavramlar, Sonuç"
+                    </p>
                 </div>
 
                 {previewData.length > 0 && (
                     <div className="mb-4">
                         <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
-                            <span className="w-6 h-6 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center text-sm">
+                            <span className="w-6 h-6 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-sm">
                                 {previewData.length}
                             </span>
                             Önizleme
@@ -177,10 +159,11 @@ export default function AttendanceImportPage() {
                             <table className="min-w-full divide-y divide-gray-200 text-sm">
                                 <thead className="bg-gray-50 sticky top-0">
                                     <tr>
-                                        <th className="px-4 py-3 text-left font-semibold text-gray-600">Sicil No</th>
-                                        <th className="px-4 py-3 text-left font-semibold text-gray-600">Eğitim Kodu</th>
-                                        <th className="px-4 py-3 text-left font-semibold text-gray-600">Başlama Tarihi</th>
-                                        <th className="px-4 py-3 text-left font-semibold text-gray-600">Eğitim Yeri</th>
+                                        <th className="px-4 py-3 text-left font-semibold text-gray-600">Kod</th>
+                                        <th className="px-4 py-3 text-left font-semibold text-gray-600">Ad</th>
+                                        <th className="px-4 py-3 text-left font-semibold text-gray-600">Süre</th>
+                                        <th className="px-4 py-3 text-left font-semibold text-gray-600">Kategori</th>
+                                        <th className="px-4 py-3 text-left font-semibold text-gray-600">Alt Başlıklar</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 bg-white">
@@ -188,16 +171,22 @@ export default function AttendanceImportPage() {
                                         <tr key={i} className="hover:bg-gray-50">
                                             <td className="px-4 py-2">
                                                 <span className="font-mono bg-gray-100 px-2 py-0.5 rounded text-xs">
-                                                    {row.sicilNo}
+                                                    {row.code}
                                                 </span>
                                             </td>
+                                            <td className="px-4 py-2 font-medium text-gray-800">{row.name}</td>
+                                            <td className="px-4 py-2 text-gray-600">{row.duration_min} dk</td>
                                             <td className="px-4 py-2">
-                                                <span className="font-mono bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-xs">
-                                                    {row.egitimKodu}
+                                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${row.category === 'TEMEL' ? 'bg-indigo-100 text-indigo-700' :
+                                                        row.category === 'TAZELEME' ? 'bg-amber-100 text-amber-700' :
+                                                            'bg-gray-100 text-gray-600'
+                                                    }`}>
+                                                    {row.category}
                                                 </span>
                                             </td>
-                                            <td className="px-4 py-2 text-gray-600">{row.baslamaTarihi}</td>
-                                            <td className="px-4 py-2 text-gray-500">{row.egitimYeri || "-"}</td>
+                                            <td className="px-4 py-2 text-gray-500 text-xs max-w-xs truncate">
+                                                {row.topics || "-"}
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -214,7 +203,7 @@ export default function AttendanceImportPage() {
                 <button
                     onClick={handleImport}
                     disabled={loading || previewData.length === 0}
-                    className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg hover:shadow-lg hover:shadow-emerald-500/25 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all flex items-center justify-center gap-2"
+                    className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:shadow-lg hover:shadow-blue-500/25 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all flex items-center justify-center gap-2"
                 >
                     {loading ? (
                         <>
@@ -229,7 +218,7 @@ export default function AttendanceImportPage() {
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                             </svg>
-                            {previewData.length} Kaydı İçeri Aktar
+                            {previewData.length} Eğitimi İçeri Aktar
                         </>
                     )}
                 </button>
@@ -240,14 +229,18 @@ export default function AttendanceImportPage() {
                             {result.success ? "✅ " : "❌ "}{result.message}
                         </p>
                         {result.data && (
-                            <div className="mt-3 grid grid-cols-2 gap-4 text-sm">
+                            <div className="mt-3 grid grid-cols-3 gap-4 text-sm">
                                 <div className="bg-white p-3 rounded-lg text-center">
                                     <p className="text-2xl font-bold text-green-600">{result.data.created}</p>
-                                    <p className="text-gray-500">Oluşturulan</p>
+                                    <p className="text-gray-500">Yeni Oluşturulan</p>
                                 </div>
                                 <div className="bg-white p-3 rounded-lg text-center">
-                                    <p className="text-2xl font-bold text-amber-600">{result.data.skipped}</p>
-                                    <p className="text-gray-500">Atlanan (Duplicate)</p>
+                                    <p className="text-2xl font-bold text-blue-600">{result.data.updated}</p>
+                                    <p className="text-gray-500">Güncellenen</p>
+                                </div>
+                                <div className="bg-white p-3 rounded-lg text-center">
+                                    <p className="text-2xl font-bold text-indigo-600">{result.data.topicsCreated}</p>
+                                    <p className="text-gray-500">Alt Başlık</p>
                                 </div>
                             </div>
                         )}
