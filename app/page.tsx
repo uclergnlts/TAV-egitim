@@ -27,10 +27,10 @@ export default function Home() {
                     <div className="flex justify-center">
                         <div className="bg-white/10 backdrop-blur-xl p-8 rounded-3xl shadow-2xl border border-white/20 hover:scale-105 transition-transform duration-500">
                             <Image
-                                src="/tav-logo.svg"
-                                alt="TAV Airports Logo"
-                                width={280}
-                                height={100}
+                                src="/tav-guvenlik-logo.png"
+                                alt="TAV Güvenlik Logo"
+                                width={300}
+                                height={120}
                                 priority
                                 className="h-auto w-auto"
                             />

@@ -86,9 +86,9 @@ export default function AdminLayoutClient({ children, session }: AdminLayoutClie
                 <div className="flex items-center space-x-3">
                     <div className="bg-white/10 p-2 rounded-lg backdrop-blur-sm">
                         <Image
-                            src="/tav-logo.svg"
-                            alt="TAV Logo"
-                            width={40}
+                            src="/tav-guvenlik-logo.png"
+                            alt="TAV Güvenlik Logo"
+                            width={120}
                             height={40}
                             className="w-auto h-8"
                         />
@@ -141,7 +141,7 @@ export default function AdminLayoutClient({ children, session }: AdminLayoutClie
                     </svg>
                 </button>
                 <div className="flex items-center space-x-2">
-                    <Image src="/tav-logo.svg" alt="TAV Logo" width={32} height={32} className="h-6 w-auto" />
+                    <Image src="/tav-guvenlik-logo.png" alt="TAV Güvenlik Logo" width={100} height={32} className="h-6 w-auto" />
                     <span className="font-bold">TAV Eğitim</span>
                 </div>
                 <div className="w-10"></div>

@@ -8,11 +8,11 @@ export default function NotFound() {
                 {/* Logo */}
                 <div className="flex justify-center mb-8">
                     <Image
-                        src="/tav-logo.svg"
-                        alt="TAV Logo"
-                        width={150}
-                        height={60}
-                        className="opacity-80"
+                        src="/tav-guvenlik-logo.png"
+                        alt="TAV Güvenlik Logo"
+                        width={200}
+                        height={80}
+                        className="opacity-80 h-auto w-auto"
                     />
                 </div>
 

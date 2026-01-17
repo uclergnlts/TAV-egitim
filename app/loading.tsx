@@ -6,11 +6,11 @@ export default function Loading() {
             <div className="flex flex-col items-center space-y-6">
                 <div className="relative">
                     <Image
-                        src="/tav-logo.svg"
+                        src="/tav-guvenlik-logo.png"
                         alt="Loading..."
-                        width={120}
+                        width={150}
                         height={60}
-                        className="animate-pulse"
+                        className="animate-pulse h-auto w-auto"
                     />
                 </div>
                 <div className="flex flex-col items-center gap-2">

@@ -66,10 +66,10 @@ export default function LoginPage() {
                         <div className="flex justify-center mb-6">
                             <div className="bg-white/20 backdrop-blur-sm p-4 rounded-2xl">
                                 <Image
-                                    src="/tav-logo.svg"
-                                    alt="TAV Airports Logo"
-                                    width={160}
-                                    height={50}
+                                    src="/tav-guvenlik-logo.png"
+                                    alt="TAV Güvenlik Logo"
+                                    width={200}
+                                    height={80}
                                     priority
                                     className="h-auto w-auto"
                                 />
