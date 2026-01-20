@@ -18,12 +18,21 @@ interface Personnel {
     adres?: string;
 }
 
+interface GroupDef {
+    id: string;
+    name: string;
+    isActive: boolean;
+}
+
 export default function PersonnelPage() {
     const [personnelList, setPersonnelList] = useState<Personnel[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+
+    // Grup tanımlamaları
+    const [groupDefs, setGroupDefs] = useState<GroupDef[]>([]);
 
     // Sort & Filter
     const [sortConfig, setSortConfig] = useState({ key: "fullName", direction: "asc" });
@@ -39,7 +48,7 @@ export default function PersonnelPage() {
         tcKimlikNo: "",
         gorevi: "X-Ray Operatörü",
         projeAdi: "TAV ESB",
-        grup: "A",
+        grup: "",
         personelDurumu: "CALISAN",
         cinsiyet: "",
         telefon: "",
@@ -48,9 +57,30 @@ export default function PersonnelPage() {
     };
     const [formData, setFormData] = useState(initialForm);
 
+    // Grupları yükle
+    useEffect(() => {
+        loadGroups();
+    }, []);
+
     useEffect(() => {
         loadPersonnel();
     }, [page, sortConfig, filters]); // Reload when page, sort or filter changes
+
+    const loadGroups = async () => {
+        try {
+            const res = await fetch("/api/definitions/groups");
+            const data = await res.json();
+            if (data.success) {
+                setGroupDefs(data.data);
+                // İlk grubu varsayılan yap
+                if (data.data.length > 0 && !formData.grup) {
+                    setFormData(prev => ({ ...prev, grup: data.data[0].name }));
+                }
+            }
+        } catch (err) {
+            console.error("Gruplar yüklenemedi", err);
+        }
+    };
 
     const loadPersonnel = async (query = "") => {
         setLoading(true);
@@ -194,11 +224,9 @@ export default function PersonnelPage() {
                         className="border-gray-300 rounded-lg text-sm"
                     >
                         <option value="">Tüm Gruplar</option>
-                        <option value="A">A Grubu</option>
-                        <option value="B">B Grubu</option>
-                        <option value="C">C Grubu</option>
-                        <option value="D">D Grubu</option>
-                        <option value="Genel">Genel</option>
+                        {groupDefs.map(g => (
+                            <option key={g.id} value={g.name}>{g.name}</option>
+                        ))}
                     </select>
 
                     <select
@@ -372,7 +400,17 @@ export default function PersonnelPage() {
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Grup</label>
-                                    <input required type="text" value={formData.grup} onChange={e => setFormData({ ...formData, grup: e.target.value })} className="w-full border-gray-300 rounded-lg" />
+                                    <select 
+                                        required 
+                                        value={formData.grup} 
+                                        onChange={e => setFormData({ ...formData, grup: e.target.value })} 
+                                        className="w-full border-gray-300 rounded-lg"
+                                    >
+                                        <option value="">Grup Seçiniz</option>
+                                        {groupDefs.map(g => (
+                                            <option key={g.id} value={g.name}>{g.name}</option>
+                                        ))}
+                                    </select>
                                 </div>
                             </div>
 

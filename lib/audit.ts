@@ -3,7 +3,7 @@ import { auditLogs } from "@/lib/db/schema";
 import { headers } from "next/headers";
 
 type ActionType = "CREATE" | "UPDATE" | "DELETE" | "IMPORT" | "LOGIN";
-type EntityType = "attendance" | "personnel" | "training" | "trainer" | "definition" | "user" | "import";
+type EntityType = "attendance" | "personnel" | "training" | "trainer" | "definition" | "user" | "import" | "personnelGroup";
 
 interface LogActionParams {
     userId: string;

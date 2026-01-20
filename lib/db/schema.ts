@@ -268,6 +268,17 @@ export const documentTypes = sqliteTable("document_types", {
     createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
 });
 
+/**
+ * 12) personnel_groups - Personel Grupları Tanımları
+ */
+export const personnelGroups = sqliteTable("personnel_groups", {
+    id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+    name: text("name").notNull(),
+    description: text("description"),
+    isActive: integer("is_active", { mode: "boolean" }).default(true).notNull(),
+    createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
+});
+
 // ==================== RELATIONS ====================
 
 export const usersRelations = relations(users, ({ many }) => ({
