@@ -30,30 +30,66 @@ interface AttendanceRow {
     personel_durumu: string;
 }
 
+// Tarih modları
+type DateMode = 'month' | 'range';
+
 export default function MonthlyReportPage() {
     const currentYear = new Date().getFullYear();
     const currentMonth = new Date().getMonth() + 1;
 
+    // Tarih modu - aylık veya tarih aralığı
+    const [dateMode, setDateMode] = useState<DateMode>('month');
+    
+    // Aylık mod için
     const [year, setYear] = useState(currentYear);
     const [month, setMonth] = useState(currentMonth);
+    
+    // Tarih aralığı modu için
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
+
     const [data, setData] = useState<{
         rows: AttendanceRow[];
         total_participation: number;
         total_minutes: number;
     } | null>(null);
     const [loading, setLoading] = useState(false);
+    
+    // Silme modalı
     const [deleteId, setDeleteId] = useState<string | null>(null);
     const [deleteLoading, setDeleteLoading] = useState(false);
+    
+    // Düzenleme modalı
+    const [editRow, setEditRow] = useState<AttendanceRow | null>(null);
+    const [editLoading, setEditLoading] = useState(false);
+    const [editForm, setEditForm] = useState({
+        baslama_tarihi: '',
+        bitis_tarihi: '',
+        baslama_saati: '',
+        bitis_saati: '',
+        egitim_yeri: '',
+        egitim_detayli_aciklama: ''
+    });
+    
     const toast = useToast();
 
     useEffect(() => {
-        loadData();
-    }, [year, month]);
+        if (dateMode === 'month') {
+            loadData();
+        }
+    }, [year, month, dateMode]);
 
     const loadData = async () => {
         setLoading(true);
         try {
-            const res = await fetch(`/api/reports/monthly?year=${year}&month=${month}`);
+            let url = '/api/reports/monthly';
+            if (dateMode === 'range' && startDate && endDate) {
+                url += `?startDate=${startDate}&endDate=${endDate}`;
+            } else {
+                url += `?year=${year}&month=${month}`;
+            }
+            
+            const res = await fetch(url);
             const result = await res.json();
             if (result.success) {
                 setData(result.data);
@@ -63,6 +99,46 @@ export default function MonthlyReportPage() {
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleSearchRange = () => {
+        if (!startDate || !endDate) {
+            toast.error("Lütfen başlangıç ve bitiş tarihlerini seçin");
+            return;
+        }
+        if (startDate > endDate) {
+            toast.error("Başlangıç tarihi bitiş tarihinden sonra olamaz");
+            return;
+        }
+        loadData();
+    };
+
+    // Hızlı tarih seçimi
+    const setQuickRange = (type: 'thisMonth' | 'lastMonth' | 'last3Months' | 'thisYear') => {
+        const now = new Date();
+        let start: Date, end: Date;
+        
+        switch (type) {
+            case 'thisMonth':
+                start = new Date(now.getFullYear(), now.getMonth(), 1);
+                end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                break;
+            case 'lastMonth':
+                start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                end = new Date(now.getFullYear(), now.getMonth(), 0);
+                break;
+            case 'last3Months':
+                start = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+                end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                break;
+            case 'thisYear':
+                start = new Date(now.getFullYear(), 0, 1);
+                end = new Date(now.getFullYear(), 11, 31);
+                break;
+        }
+        
+        setStartDate(start.toISOString().split('T')[0]);
+        setEndDate(end.toISOString().split('T')[0]);
     };
 
     const handleDelete = async (id: string) => {
@@ -87,10 +163,62 @@ export default function MonthlyReportPage() {
         }
     };
 
+    // Düzenleme modalını aç
+    const openEditModal = (row: AttendanceRow) => {
+        setEditRow(row);
+        setEditForm({
+            baslama_tarihi: row.baslama_tarihi,
+            bitis_tarihi: row.bitis_tarihi,
+            baslama_saati: row.baslama_saati,
+            bitis_saati: row.bitis_saati,
+            egitim_yeri: row.egitim_yeri,
+            egitim_detayli_aciklama: row.egitim_detayli_aciklama || ''
+        });
+    };
+
+    // Düzenleme kaydet
+    const handleEdit = async () => {
+        if (!editRow) return;
+        
+        setEditLoading(true);
+        try {
+            const res = await fetch('/api/attendances', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: editRow.id,
+                    ...editForm
+                })
+            });
+            const result = await res.json();
+            if (result.success) {
+                toast.success("Kayıt başarıyla güncellendi");
+                loadData();
+                setEditRow(null);
+            } else {
+                toast.error(result.message || "Güncelleme başarısız");
+            }
+        } catch (err) {
+            console.error("Edit failed:", err);
+            toast.error("Güncelleme başarısız");
+        } finally {
+            setEditLoading(false);
+        }
+    };
+
     const exportToExcel = () => {
         if (!data?.rows.length) return;
 
-        const exportData = data.rows.map(row => ({
+        // Durum sıralaması: CALISAN, IZINLI, PASIF, AYRILDI
+        const statusOrder: Record<string, number> = { 'CALISAN': 0, 'IZINLI': 1, 'PASIF': 2, 'AYRILDI': 3 };
+        const sortedRows = [...data.rows].sort((a, b) => {
+            const orderA = statusOrder[a.personel_durumu] ?? 4;
+            const orderB = statusOrder[b.personel_durumu] ?? 4;
+            if (orderA !== orderB) return orderA - orderB;
+            return a.ad_soyad.localeCompare(b.ad_soyad, 'tr');
+        });
+
+        const exportData = sortedRows.map(row => ({
             "Sicil No": row.sicil_no,
             "Ad Soyad": row.ad_soyad,
             "TC Kimlik": row.tc_kimlik_no,
@@ -119,8 +247,20 @@ export default function MonthlyReportPage() {
         ws['!cols'] = colWidths;
 
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, `${MONTHS_TR[month - 1]} ${year}`);
-        XLSX.writeFile(wb, `Aylik_Rapor_${MONTHS_TR[month - 1]}_${year}.xlsx`);
+        
+        // Dosya adı tarih moduna göre
+        let sheetName: string;
+        let fileName: string;
+        if (dateMode === 'range') {
+            sheetName = `${startDate}_${endDate}`;
+            fileName = `Rapor_${startDate}_${endDate}.xlsx`;
+        } else {
+            sheetName = `${MONTHS_TR[month - 1]} ${year}`;
+            fileName = `Aylik_Rapor_${MONTHS_TR[month - 1]}_${year}.xlsx`;
+        }
+        
+        XLSX.utils.book_append_sheet(wb, ws, sheetName.substring(0, 31)); // Sheet name max 31 char
+        XLSX.writeFile(wb, fileName);
     };
 
     const years = Array.from({ length: 10 }, (_, i) => currentYear - 5 + i);
@@ -137,38 +277,127 @@ export default function MonthlyReportPage() {
                     <p className="text-sm text-gray-500">Seçili döneme ait tüm katılım kayıtları</p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
-                    <select
-                        value={year}
-                        onChange={(e) => setYear(parseInt(e.target.value))}
-                        className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
-                    >
-                        {years.map((y) => (
-                            <option key={y} value={y}>{y}</option>
-                        ))}
-                    </select>
+                <button
+                    onClick={exportToExcel}
+                    disabled={!data?.rows.length}
+                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 font-medium flex items-center gap-2 disabled:opacity-50 text-sm"
+                >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span>Excel İndir</span>
+                </button>
+            </div>
 
-                    <select
-                        value={month}
-                        onChange={(e) => setMonth(parseInt(e.target.value))}
-                        className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
-                    >
-                        {MONTHS_TR.map((m, i) => (
-                            <option key={i} value={i + 1}>{m}</option>
-                        ))}
-                    </select>
-
+            {/* Tarih Seçimi */}
+            <div className="bg-white rounded-xl shadow-sm border p-4">
+                {/* Mod Seçimi */}
+                <div className="flex gap-2 mb-4">
                     <button
-                        onClick={exportToExcel}
-                        disabled={!data?.rows.length}
-                        className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 font-medium flex items-center gap-2 disabled:opacity-50 text-sm"
+                        onClick={() => setDateMode('month')}
+                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                            dateMode === 'month' 
+                                ? 'bg-blue-600 text-white' 
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
                     >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        <span className="hidden sm:inline">Excel İndir</span>
+                        Ay Seçimi
+                    </button>
+                    <button
+                        onClick={() => setDateMode('range')}
+                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                            dateMode === 'range' 
+                                ? 'bg-blue-600 text-white' 
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                    >
+                        Tarih Aralığı
                     </button>
                 </div>
+
+                {dateMode === 'month' ? (
+                    // Aylık Mod
+                    <div className="flex flex-wrap items-center gap-2">
+                        <select
+                            value={year}
+                            onChange={(e) => setYear(parseInt(e.target.value))}
+                            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                        >
+                            {years.map((y) => (
+                                <option key={y} value={y}>{y}</option>
+                            ))}
+                        </select>
+
+                        <select
+                            value={month}
+                            onChange={(e) => setMonth(parseInt(e.target.value))}
+                            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                        >
+                            {MONTHS_TR.map((m, i) => (
+                                <option key={i} value={i + 1}>{m}</option>
+                            ))}
+                        </select>
+                    </div>
+                ) : (
+                    // Tarih Aralığı Modu
+                    <div className="space-y-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex items-center gap-2">
+                                <label className="text-sm text-gray-600">Başlangıç:</label>
+                                <input
+                                    type="date"
+                                    value={startDate}
+                                    onChange={(e) => setStartDate(e.target.value)}
+                                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                                />
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <label className="text-sm text-gray-600">Bitiş:</label>
+                                <input
+                                    type="date"
+                                    value={endDate}
+                                    onChange={(e) => setEndDate(e.target.value)}
+                                    className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                                />
+                            </div>
+                            <button
+                                onClick={handleSearchRange}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm"
+                            >
+                                Ara
+                            </button>
+                        </div>
+                        
+                        {/* Hızlı Seçim Butonları */}
+                        <div className="flex flex-wrap gap-2">
+                            <span className="text-xs text-gray-500 self-center">Hızlı seçim:</span>
+                            <button
+                                onClick={() => setQuickRange('thisMonth')}
+                                className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                            >
+                                Bu Ay
+                            </button>
+                            <button
+                                onClick={() => setQuickRange('lastMonth')}
+                                className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                            >
+                                Geçen Ay
+                            </button>
+                            <button
+                                onClick={() => setQuickRange('last3Months')}
+                                className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                            >
+                                Son 3 Ay
+                            </button>
+                            <button
+                                onClick={() => setQuickRange('thisYear')}
+                                className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                            >
+                                Bu Yıl
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Summary Cards */}
@@ -286,15 +515,26 @@ export default function MonthlyReportPage() {
                                             {row.veri_giris_tarihi ? new Date(row.veri_giris_tarihi).toLocaleDateString("tr-TR") : "-"}
                                         </td>
                                         <td className="px-3 py-2 text-center">
-                                            <button
-                                                onClick={() => setDeleteId(row.id)}
-                                                className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
-                                                title="Sil"
-                                            >
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                </svg>
-                                            </button>
+                                            <div className="flex items-center justify-center gap-1">
+                                                <button
+                                                    onClick={() => openEditModal(row)}
+                                                    className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                                                    title="Düzenle"
+                                                >
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                    </svg>
+                                                </button>
+                                                <button
+                                                    onClick={() => setDeleteId(row.id)}
+                                                    className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                                                    title="Sil"
+                                                >
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                    </svg>
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}
@@ -342,6 +582,136 @@ export default function MonthlyReportPage() {
                                     </>
                                 ) : (
                                     "Evet, Sil"
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Modal */}
+            {editRow && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-xl shadow-xl p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-blue-100 rounded-full">
+                                    <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                    </svg>
+                                </div>
+                                <h3 className="text-lg font-bold text-gray-900">Kaydı Düzenle</h3>
+                            </div>
+                            <button
+                                onClick={() => setEditRow(null)}
+                                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        {/* Sadece okunur bilgiler */}
+                        <div className="bg-gray-50 rounded-lg p-3 mb-4 text-sm">
+                            <div className="grid grid-cols-2 gap-2">
+                                <div><span className="text-gray-500">Sicil:</span> <span className="font-medium">{editRow.sicil_no}</span></div>
+                                <div><span className="text-gray-500">Ad Soyad:</span> <span className="font-medium">{editRow.ad_soyad}</span></div>
+                                <div><span className="text-gray-500">Eğitim:</span> <span className="font-medium text-green-700">{editRow.egitim_kodu}</span></div>
+                                <div><span className="text-gray-500">Süre:</span> <span className="font-medium">{editRow.egitim_suresi_dk} dk</span></div>
+                            </div>
+                        </div>
+
+                        {/* Düzenlenebilir alanlar */}
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Başlama Tarihi</label>
+                                    <input
+                                        type="date"
+                                        value={editForm.baslama_tarihi}
+                                        onChange={(e) => setEditForm({ ...editForm, baslama_tarihi: e.target.value })}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Bitiş Tarihi</label>
+                                    <input
+                                        type="date"
+                                        value={editForm.bitis_tarihi}
+                                        onChange={(e) => setEditForm({ ...editForm, bitis_tarihi: e.target.value })}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Başlama Saati</label>
+                                    <input
+                                        type="time"
+                                        value={editForm.baslama_saati}
+                                        onChange={(e) => setEditForm({ ...editForm, baslama_saati: e.target.value })}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Bitiş Saati</label>
+                                    <input
+                                        type="time"
+                                        value={editForm.bitis_saati}
+                                        onChange={(e) => setEditForm({ ...editForm, bitis_saati: e.target.value })}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Eğitim Yeri</label>
+                                <input
+                                    type="text"
+                                    value={editForm.egitim_yeri}
+                                    onChange={(e) => setEditForm({ ...editForm, egitim_yeri: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                                    placeholder="Eğitim yeri..."
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Detaylı Açıklama</label>
+                                <textarea
+                                    value={editForm.egitim_detayli_aciklama}
+                                    onChange={(e) => setEditForm({ ...editForm, egitim_detayli_aciklama: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                                    rows={3}
+                                    placeholder="Eğitim hakkında ek bilgiler..."
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-3 mt-6">
+                            <button
+                                onClick={() => setEditRow(null)}
+                                className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors"
+                                disabled={editLoading}
+                            >
+                                İptal
+                            </button>
+                            <button
+                                onClick={handleEdit}
+                                disabled={editLoading}
+                                className="px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg font-medium transition-colors flex items-center gap-2"
+                            >
+                                {editLoading ? (
+                                    <>
+                                        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        Kaydediliyor...
+                                    </>
+                                ) : (
+                                    "Kaydet"
                                 )}
                             </button>
                         </div>

@@ -1,12 +1,13 @@
 /**
  * Aylık Rapor API
  * GET /api/reports/monthly?year=2026&month=5
+ * GET /api/reports/monthly?startDate=2026-01-01&endDate=2026-01-31
  * Yetki: ADMIN
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { db, attendances } from "@/lib/db";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, gte, lte } from "drizzle-orm";
 import { getSession } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
@@ -22,18 +23,31 @@ export async function GET(request: NextRequest) {
 
         // Query parametreleri
         const searchParams = request.nextUrl.searchParams;
+        const startDate = searchParams.get("startDate");
+        const endDate = searchParams.get("endDate");
         const year = parseInt(searchParams.get("year") || new Date().getFullYear().toString());
         const month = parseInt(searchParams.get("month") || (new Date().getMonth() + 1).toString());
 
-        // Validasyon
-        if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
-            return NextResponse.json(
-                { success: false, message: "Geçersiz yıl veya ay parametresi" },
-                { status: 400 }
+        let whereCondition;
+        
+        // Tarih aralığı modu
+        if (startDate && endDate) {
+            whereCondition = and(
+                gte(attendances.baslamaTarihi, startDate),
+                lte(attendances.baslamaTarihi, endDate)
             );
+        } else {
+            // Aylık mod
+            if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
+                return NextResponse.json(
+                    { success: false, message: "Geçersiz yıl veya ay parametresi" },
+                    { status: 400 }
+                );
+            }
+            whereCondition = and(eq(attendances.year, year), eq(attendances.month, month));
         }
 
-        // Aylık kayıtları getir (07-MONTHLY-GENERAL-TABLE.md'ye göre)
+        // Kayıtları getir - personel durumuna göre sıralı (CALISAN önce)
         const rows = await db
             .select({
                 id: attendances.id,
@@ -60,8 +74,12 @@ export async function GET(request: NextRequest) {
                 personel_durumu: attendances.personelDurumu,
             })
             .from(attendances)
-            .where(and(eq(attendances.year, year), eq(attendances.month, month)))
-            .orderBy(attendances.baslamaTarihi, attendances.baslamaSaati, attendances.adSoyad);
+            .where(whereCondition)
+            .orderBy(
+                sql`CASE ${attendances.personelDurumu} WHEN 'CALISAN' THEN 0 WHEN 'IZINLI' THEN 1 WHEN 'PASIF' THEN 2 WHEN 'AYRILDI' THEN 3 ELSE 4 END`,
+                attendances.baslamaTarihi,
+                attendances.adSoyad
+            );
 
         // Toplamlar
         const totals = await db
@@ -70,7 +88,7 @@ export async function GET(request: NextRequest) {
                 total_minutes: sql<number>`CAST(coalesce(sum(${attendances.egitimSuresiDk}), 0) AS INTEGER)`,
             })
             .from(attendances)
-            .where(and(eq(attendances.year, year), eq(attendances.month, month)));
+            .where(whereCondition);
 
         return NextResponse.json({
             success: true,

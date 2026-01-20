@@ -228,6 +228,93 @@ export async function POST(request: NextRequest) {
     }
 }
 
+// PUT - Katılım kaydı güncelle
+export async function PUT(request: NextRequest) {
+    try {
+        const session = await getSession();
+        if (!session) {
+            return NextResponse.json(
+                { success: false, message: "Oturum açmanız gerekiyor" },
+                { status: 401 }
+            );
+        }
+
+        // Sadece ADMIN düzenleyebilir
+        if (session.role !== "ADMIN") {
+            return NextResponse.json(
+                { success: false, message: "Bu işlem için yetkiniz yok" },
+                { status: 403 }
+            );
+        }
+
+        const body = await request.json();
+        const { id, baslama_tarihi, bitis_tarihi, baslama_saati, bitis_saati, egitim_yeri, egitim_detayli_aciklama } = body;
+
+        if (!id) {
+            return NextResponse.json(
+                { success: false, message: "ID gerekli" },
+                { status: 400 }
+            );
+        }
+
+        // Mevcut kaydı bul
+        const existingRecord = await db.query.attendances.findFirst({
+            where: eq(attendances.id, id),
+        });
+
+        if (!existingRecord) {
+            return NextResponse.json(
+                { success: false, message: "Kayıt bulunamadı" },
+                { status: 404 }
+            );
+        }
+
+        // Year ve month'u başlangıç tarihinden hesapla
+        const dateObj = new Date(baslama_tarihi);
+        const newYear = dateObj.getFullYear();
+        const newMonth = dateObj.getMonth() + 1;
+
+        // Güncelle
+        const [updated] = await db.update(attendances)
+            .set({
+                baslamaTarihi: baslama_tarihi,
+                bitisTarihi: bitis_tarihi,
+                baslamaSaati: baslama_saati,
+                bitisSaati: bitis_saati,
+                egitimYeri: egitim_yeri,
+                egitimDetayliAciklama: egitim_detayli_aciklama || null,
+                year: newYear,
+                month: newMonth,
+            })
+            .where(eq(attendances.id, id))
+            .returning();
+
+        // Audit Log
+        await logAction({
+            userId: session.userId,
+            userRole: "ADMIN",
+            actionType: "UPDATE",
+            entityType: "attendance",
+            entityId: id,
+            oldValue: existingRecord,
+            newValue: updated,
+        });
+
+        return NextResponse.json({
+            success: true,
+            message: "Kayıt başarıyla güncellendi",
+            data: updated,
+        });
+
+    } catch (error) {
+        console.error("Attendance update error:", error);
+        return NextResponse.json(
+            { success: false, message: "Güncelleme işlemi başarısız" },
+            { status: 500 }
+        );
+    }
+}
+
 export async function DELETE(request: NextRequest) {
     try {
         const session = await getSession();
