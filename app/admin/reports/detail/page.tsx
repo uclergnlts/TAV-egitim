@@ -4,38 +4,39 @@ import { useState, useEffect } from "react";
 import * as XLSX from "xlsx";
 
 interface AttendanceRecord {
-    // 2.1 Personel Bilgileri (7)
+    // 1. Personel Bilgileri
     sicilNo: string;
     adSoyad: string;
     tcKimlikNo: string;
     gorevi: string;
     projeAdi: string;
     grup: string;
-    personelDurumu: string;
 
-    // 2.2 Eğitim Bilgileri (2)
+    // 2. Eğitim Bilgileri
     egitimKodu: string;
     egitimAltBasligi: string | null;
 
-    // 2.3 Zaman Bilgileri (4)
+    // 3. Zaman Bilgileri
     baslamaTarihi: string;
     bitisTarihi: string;
+    egitimSuresiDk: number;
     baslamaSaati: string;
     bitisSaati: string;
 
-    // 2.4 Eğitim Detay Bilgileri (3)
-    egitimSuresiDk: number;
+    // 4. Eğitim Detay Bilgileri
     egitimYeri: string;
-    icDisEgitim: string;
-
-    // 2.5 Belge & Açıklama (2)
+    egitmenAdi: string | null;
     sonucBelgesiTuru: string;
+    icDisEgitim: string;
     egitimDetayliAciklama: string | null;
 
-    // 2.6 Kayıt (Audit) Bilgileri (3)
+    // 5. Kayıt (Audit) Bilgileri
     veriGirenSicil: string;
     veriGirenAdSoyad: string;
     veriGirisTarihi: string;
+
+    // 6. Personel Durumu
+    personelDurumu: string;
 }
 
 export default function DetailedReportPage() {
@@ -97,27 +98,27 @@ export default function DetailedReportPage() {
 
     const exportToExcel = () => {
         const exportData = data.map(row => ({
-            "sicil_no": row.sicilNo,
-            "ad_soyad": row.adSoyad,
-            "tc_kimlik_no": row.tcKimlikNo,
-            "gorevi": row.gorevi,
-            "proje_adi": row.projeAdi,
-            "grup": row.grup,
-            "personel_durumu": row.personelDurumu,
-            "egitim_kodu": row.egitimKodu,
-            "egitim_alt_basligi": row.egitimAltBasligi,
-            "egitim_baslama_tarihi": row.baslamaTarihi,
-            "egitim_bitis_tarihi": row.bitisTarihi,
-            "egitim_baslama_saati": row.baslamaSaati,
-            "egitim_bitis_saati": row.bitisSaati,
-            "egitim_suresi_dk": row.egitimSuresiDk,
-            "egitim_yeri": row.egitimYeri,
-            "ic_dis_egitim": row.icDisEgitim,
-            "sonuc_belgesi_turu": row.sonucBelgesiTuru,
-            "egitim_detayli_aciklama": row.egitimDetayliAciklama,
-            "veri_giren_sicil": row.veriGirenSicil,
-            "veri_giren_ad_soyad": row.veriGirenAdSoyad,
-            "veri_giris_tarihi": row.veriGirisTarihi
+            "Sicil No": row.sicilNo,
+            "Ad Soyad": row.adSoyad,
+            "TC Kimlik No": row.tcKimlikNo,
+            "Görevi": row.gorevi,
+            "Proje": row.projeAdi,
+            "Grup": row.grup,
+            "Eğitim Kodu": row.egitimKodu,
+            "Eğitim Alt Başlık": row.egitimAltBasligi || "",
+            "Eğitim Başlama Tarihi": row.baslamaTarihi,
+            "Eğitim Bitiş Tarihi": row.bitisTarihi,
+            "Eğitim Süresi (dk)": row.egitimSuresiDk,
+            "Eğitim Başlama Saati": row.baslamaSaati,
+            "Eğitim Bitiş Saati": row.bitisSaati,
+            "Eğitim Yeri": row.egitimYeri,
+            "Eğitmen Adı": row.egitmenAdi || "",
+            "Sonuç Belgesi": row.sonucBelgesiTuru,
+            "İç Dış Eğitim": row.icDisEgitim === 'IC' ? 'İç' : 'Dış',
+            "Eğitim Detay": row.egitimDetayliAciklama || "",
+            "Veri Giren": `${row.veriGirenSicil} - ${row.veriGirenAdSoyad}`,
+            "Veri Girilme Tarihi ve Saati": row.veriGirisTarihi ? new Date(row.veriGirisTarihi).toLocaleString("tr-TR") : "",
+            "Personel Durumu": row.personelDurumu
         }));
 
         const ws = XLSX.utils.json_to_sheet(exportData);
@@ -346,38 +347,40 @@ export default function DetailedReportPage() {
                     <table className="min-w-max w-full divide-y divide-gray-200 text-xs">
                         <thead className="bg-gray-100 sticky top-0 z-10">
                             <tr>
-                                {/* 2.1 Personel Bilgileri */}
+                                {/* 1. Personel Bilgileri */}
                                 <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-blue-50 border-r">Sicil No</th>
                                 <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-blue-50">Ad Soyad</th>
                                 <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-blue-50">TC Kimlik</th>
                                 <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-blue-50">Görevi</th>
                                 <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-blue-50">Proje</th>
-                                <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-blue-50">Grup</th>
-                                <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-blue-50 border-r">Durum</th>
+                                <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-blue-50 border-r">Grup</th>
 
-                                {/* 2.2 Eğitim Bilgileri */}
+                                {/* 2. Eğitim Bilgileri */}
                                 <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-green-50">Eğitim Kodu</th>
                                 <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-green-50 border-r">Alt Başlık</th>
 
-                                {/* 2.3 Zaman Bilgileri */}
+                                {/* 3. Zaman Bilgileri */}
                                 <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-yellow-50">Baş. Tarihi</th>
                                 <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-yellow-50">Bit. Tarihi</th>
+                                <th className="px-3 py-3 text-right font-semibold text-gray-700 bg-yellow-50">Süre (dk)</th>
                                 <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-yellow-50">Baş. Saati</th>
                                 <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-yellow-50 border-r">Bit. Saati</th>
 
-                                {/* 2.4 Eğitim Detay Bilgileri */}
-                                <th className="px-3 py-3 text-right font-semibold text-gray-700 bg-orange-50">Süre (dk)</th>
+                                {/* 4. Eğitim Detay Bilgileri */}
                                 <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-orange-50">Eğitim Yeri</th>
-                                <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-orange-50 border-r">İç/Dış</th>
+                                <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-orange-50 border-r">Eğitmen Adı</th>
 
-                                {/* 2.5 Belge & Açıklama */}
-                                <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-purple-50">Belge Türü</th>
-                                <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-purple-50 border-r">Açıklama</th>
+                                {/* 5. Belge & Diğer */}
+                                <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-purple-50">Sonuç Belgesi</th>
+                                <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-purple-50">İç/Dış</th>
+                                <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-purple-50 border-r">Eğitim Detay</th>
 
-                                {/* 2.6 Kayıt (Audit) Bilgileri */}
-                                <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-red-50">Giren Sicil</th>
-                                <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-red-50">Giren Ad</th>
-                                <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-red-50">Giriş Tar.</th>
+                                {/* 6. Kayıt (Audit) Bilgileri */}
+                                <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-red-50">Veri Giren</th>
+                                <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-red-50 border-r">Giriş Tar.</th>
+
+                                {/* 7. Durum */}
+                                <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-gray-200">Durum</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200 bg-white">
@@ -388,14 +391,51 @@ export default function DetailedReportPage() {
                             ) : (
                                 data.map((row, idx) => (
                                     <tr key={idx} className="hover:bg-gray-50 transition-colors">
-                                        {/* 2.1 Personel */}
+                                        {/* 1. Personel */}
                                         <td className="px-3 py-2 font-mono font-medium text-blue-700 bg-blue-50/30 border-r whitespace-nowrap">{row.sicilNo}</td>
                                         <td className="px-3 py-2 font-medium whitespace-nowrap">{row.adSoyad}</td>
                                         <td className="px-3 py-2 text-gray-500 font-mono text-[10px]">{row.tcKimlikNo}</td>
                                         <td className="px-3 py-2 whitespace-nowrap">{row.gorevi}</td>
                                         <td className="px-3 py-2 whitespace-nowrap">{row.projeAdi}</td>
-                                        <td className="px-3 py-2">{row.grup}</td>
-                                        <td className="px-3 py-2 border-r">
+                                        <td className="px-3 py-2 border-r">{row.grup}</td>
+
+                                        {/* 2. Eğitim */}
+                                        <td className="px-3 py-2 font-bold text-green-700 whitespace-nowrap">{row.egitimKodu}</td>
+                                        <td className="px-3 py-2 text-gray-600 border-r max-w-[150px] truncate" title={row.egitimAltBasligi || ""}>
+                                            {row.egitimAltBasligi || "-"}
+                                        </td>
+
+                                        {/* 3. Zaman */}
+                                        <td className="px-3 py-2 whitespace-nowrap font-mono text-[11px]">{row.baslamaTarihi}</td>
+                                        <td className="px-3 py-2 whitespace-nowrap font-mono text-[11px]">{row.bitisTarihi}</td>
+                                        <td className="px-3 py-2 text-right font-bold text-orange-700">{row.egitimSuresiDk}</td>
+                                        <td className="px-3 py-2 font-mono text-[11px]">{row.baslamaSaati}</td>
+                                        <td className="px-3 py-2 font-mono text-[11px] border-r">{row.bitisSaati}</td>
+
+                                        {/* 4. Detay */}
+                                        <td className="px-3 py-2 max-w-[120px] truncate" title={row.egitimYeri}>{row.egitimYeri}</td>
+                                        <td className="px-3 py-2 border-r whitespace-nowrap">{row.egitmenAdi || "-"}</td>
+
+                                        {/* 5. Belge */}
+                                        <td className="px-3 py-2 max-w-[120px] truncate text-[10px]" title={row.sonucBelgesiTuru}>{row.sonucBelgesiTuru}</td>
+                                        <td className="px-3 py-2">
+                                            <span className={`px-2 py-0.5 rounded text-[10px] ${row.icDisEgitim === 'IC' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
+                                                }`}>
+                                                {row.icDisEgitim === 'IC' ? 'İç' : 'Dış'}
+                                            </span>
+                                        </td>
+                                        <td className="px-3 py-2 border-r max-w-[150px] truncate text-gray-500 text-[10px]" title={row.egitimDetayliAciklama || ""}>
+                                            {row.egitimDetayliAciklama || "-"}
+                                        </td>
+
+                                        {/* 6. Audit */}
+                                        <td className="px-3 py-2 text-gray-500 text-[10px] whitespace-nowrap">{row.veriGirenSicil} - {row.veriGirenAdSoyad}</td>
+                                        <td className="px-3 py-2 text-gray-400 text-[10px] whitespace-nowrap border-r">
+                                            {row.veriGirisTarihi ? new Date(row.veriGirisTarihi).toLocaleString("tr-TR") : "-"}
+                                        </td>
+
+                                        {/* 7. Durum */}
+                                        <td className="px-3 py-2">
                                             <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${row.personelDurumu === 'CALISAN' ? 'bg-green-100 text-green-800' :
                                                 row.personelDurumu === 'AYRILDI' ? 'bg-red-100 text-red-800' :
                                                     row.personelDurumu === 'PASIF' ? 'bg-gray-200 text-gray-600' :
@@ -403,41 +443,6 @@ export default function DetailedReportPage() {
                                                 }`}>
                                                 {row.personelDurumu}
                                             </span>
-                                        </td>
-
-                                        {/* 2.2 Eğitim */}
-                                        <td className="px-3 py-2 font-bold text-green-700 whitespace-nowrap">{row.egitimKodu}</td>
-                                        <td className="px-3 py-2 text-gray-600 border-r max-w-[150px] truncate" title={row.egitimAltBasligi || ""}>
-                                            {row.egitimAltBasligi || "-"}
-                                        </td>
-
-                                        {/* 2.3 Zaman */}
-                                        <td className="px-3 py-2 whitespace-nowrap font-mono text-[11px]">{row.baslamaTarihi}</td>
-                                        <td className="px-3 py-2 whitespace-nowrap font-mono text-[11px]">{row.bitisTarihi}</td>
-                                        <td className="px-3 py-2 font-mono text-[11px]">{row.baslamaSaati}</td>
-                                        <td className="px-3 py-2 font-mono text-[11px] border-r">{row.bitisSaati}</td>
-
-                                        {/* 2.4 Detay */}
-                                        <td className="px-3 py-2 text-right font-bold text-orange-700">{row.egitimSuresiDk}</td>
-                                        <td className="px-3 py-2 max-w-[120px] truncate" title={row.egitimYeri}>{row.egitimYeri}</td>
-                                        <td className="px-3 py-2 border-r">
-                                            <span className={`px-2 py-0.5 rounded text-[10px] ${row.icDisEgitim === 'IC' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
-                                                }`}>
-                                                {row.icDisEgitim === 'IC' ? 'İç' : 'Dış'}
-                                            </span>
-                                        </td>
-
-                                        {/* 2.5 Belge */}
-                                        <td className="px-3 py-2 max-w-[120px] truncate text-[10px]" title={row.sonucBelgesiTuru}>{row.sonucBelgesiTuru}</td>
-                                        <td className="px-3 py-2 border-r max-w-[150px] truncate text-gray-500 text-[10px]" title={row.egitimDetayliAciklama || ""}>
-                                            {row.egitimDetayliAciklama || "-"}
-                                        </td>
-
-                                        {/* 2.6 Audit */}
-                                        <td className="px-3 py-2 text-gray-500 font-mono text-[10px] whitespace-nowrap">{row.veriGirenSicil}</td>
-                                        <td className="px-3 py-2 text-gray-500 text-[10px] whitespace-nowrap">{row.veriGirenAdSoyad}</td>
-                                        <td className="px-3 py-2 text-gray-400 text-[10px] whitespace-nowrap">
-                                            {row.veriGirisTarihi ? new Date(row.veriGirisTarihi).toLocaleDateString("tr-TR") : "-"}
                                         </td>
                                     </tr>
                                 ))

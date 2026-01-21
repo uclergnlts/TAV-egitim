@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { db, attendances } from "@/lib/db";
+import { db, attendances, trainers } from "@/lib/db";
 import { eq, and, sql, gte, lte } from "drizzle-orm";
 import { getSession } from "@/lib/auth";
 
@@ -61,12 +61,13 @@ export async function GET(request: NextRequest) {
                 egitim_alt_basligi: attendances.egitimAltBasligi,
                 baslama_tarihi: attendances.baslamaTarihi,
                 bitis_tarihi: attendances.bitisTarihi,
+                egitim_suresi_dk: attendances.egitimSuresiDk,
                 baslama_saati: attendances.baslamaSaati,
                 bitis_saati: attendances.bitisSaati,
-                egitim_suresi_dk: attendances.egitimSuresiDk,
                 egitim_yeri: attendances.egitimYeri,
-                ic_dis_egitim: attendances.icDisEgitim,
+                egitmen_adi: trainers.fullName,
                 sonuc_belgesi_turu: attendances.sonucBelgesiTuru,
+                ic_dis_egitim: attendances.icDisEgitim,
                 egitim_detayli_aciklama: attendances.egitimDetayliAciklama,
                 veri_giren_sicil: attendances.veriGirenSicil,
                 veri_giren_ad_soyad: attendances.veriGirenAdSoyad,
@@ -74,6 +75,7 @@ export async function GET(request: NextRequest) {
                 personel_durumu: attendances.personelDurumu,
             })
             .from(attendances)
+            .leftJoin(trainers, eq(attendances.trainerId, trainers.id))
             .where(whereCondition)
             .orderBy(
                 sql`CASE ${attendances.personelDurumu} WHEN 'CALISAN' THEN 0 WHEN 'IZINLI' THEN 1 WHEN 'PASIF' THEN 2 WHEN 'AYRILDI' THEN 3 ELSE 4 END`,
