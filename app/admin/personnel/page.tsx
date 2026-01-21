@@ -2,21 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { Edit, Trash2 } from "lucide-react";
-
-interface Personnel {
-    id: string;
-    sicilNo: string;
-    fullName: string;
-    tcKimlikNo: string;
-    gorevi: string;
-    projeAdi: string;
-    grup: string;
-    personelDurumu: string;
-    cinsiyet?: string;
-    telefon?: string;
-    dogumTarihi?: string;
-    adres?: string;
-}
+import PersonnelModal from "@/components/admin/PersonnelModal";
+import { type Personnel } from "@/lib/db/schema";
 
 interface GroupDef {
     id: string;
@@ -39,23 +26,7 @@ export default function PersonnelPage() {
     const [filters, setFilters] = useState({ grup: "", durum: "" });
 
     const [showModal, setShowModal] = useState(false);
-    const [editId, setEditId] = useState<string | null>(null);
-
-    // Form
-    const initialForm = {
-        sicilNo: "",
-        fullName: "",
-        tcKimlikNo: "",
-        gorevi: "X-Ray Operatörü",
-        projeAdi: "TAV ESB",
-        grup: "",
-        personelDurumu: "CALISAN",
-        cinsiyet: "",
-        telefon: "",
-        dogumTarihi: "",
-        adres: ""
-    };
-    const [formData, setFormData] = useState(initialForm);
+    const [selectedPersonnel, setSelectedPersonnel] = useState<Personnel | null>(null);
 
     // Grupları yükle
     useEffect(() => {
@@ -72,10 +43,6 @@ export default function PersonnelPage() {
             const data = await res.json();
             if (data.success) {
                 setGroupDefs(data.data);
-                // İlk grubu varsayılan yap
-                if (data.data.length > 0 && !formData.grup) {
-                    setFormData(prev => ({ ...prev, grup: data.data[0].name }));
-                }
             }
         } catch (err) {
             console.error("Gruplar yüklenemedi", err);
@@ -125,29 +92,7 @@ export default function PersonnelPage() {
         }));
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        try {
-            const method = editId ? "PUT" : "POST";
-            const body = editId ? { ...formData, id: editId } : formData;
-
-            const res = await fetch("/api/personnel", {
-                method: method,
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(body)
-            });
-            const result = await res.json();
-            if (result.success) {
-                // alert(editId ? "Personel güncellendi" : "Personel eklendi");
-                setShowModal(false);
-                loadPersonnel(search); // Refresh list
-            } else {
-                alert(result.message || "Hata");
-            }
-        } catch (err) {
-            alert("Hata oluştu");
-        }
-    };
+    // handleSubmit functionality moved to PersonnelModal component
 
     const handleDelete = async (id: string) => {
         if (!confirm("Bu personeli PASİF duruma getirmek istediğinize emin misiniz? Eğitim ve diğer işlemlerde kullanılamayacaktır.")) return;
@@ -167,26 +112,12 @@ export default function PersonnelPage() {
     };
 
     const handleEdit = (p: Personnel) => {
-        setFormData({
-            sicilNo: p.sicilNo,
-            fullName: p.fullName,
-            tcKimlikNo: p.tcKimlikNo,
-            gorevi: p.gorevi,
-            projeAdi: p.projeAdi,
-            grup: p.grup,
-            personelDurumu: p.personelDurumu,
-            cinsiyet: p.cinsiyet || "",
-            telefon: p.telefon || "",
-            dogumTarihi: p.dogumTarihi || "",
-            adres: p.adres || ""
-        });
-        setEditId(p.id);
+        setSelectedPersonnel(p);
         setShowModal(true);
     };
 
     const handleNew = () => {
-        setFormData(initialForm);
-        setEditId(null);
+        setSelectedPersonnel(null);
         setShowModal(true);
     };
 
@@ -196,7 +127,7 @@ export default function PersonnelPage() {
                 <h1 className="text-2xl font-bold text-gray-800">Personel Yönetimi</h1>
                 <button
                     onClick={handleNew}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors"
                 >
                     + Yeni Personel Ekle
                 </button>
@@ -211,9 +142,9 @@ export default function PersonnelPage() {
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                         placeholder="Sicil No veya Ad Soyad ile ara..."
-                        className="flex-1 border-gray-300 rounded-lg"
+                        className="flex-1 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
                     />
-                    <button type="submit" className="px-6 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900">Ara</button>
+                    <button type="submit" className="px-6 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors">Ara</button>
                 </form>
 
                 {/* Filters */}
@@ -221,7 +152,7 @@ export default function PersonnelPage() {
                     <select
                         value={filters.grup}
                         onChange={e => { setFilters({ ...filters, grup: e.target.value }); setPage(1); }}
-                        className="border-gray-300 rounded-lg text-sm"
+                        className="border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
                     >
                         <option value="">Tüm Gruplar</option>
                         {groupDefs.map(g => (
@@ -232,7 +163,7 @@ export default function PersonnelPage() {
                     <select
                         value={filters.durum}
                         onChange={e => { setFilters({ ...filters, durum: e.target.value }); setPage(1); }}
-                        className="border-gray-300 rounded-lg text-sm"
+                        className="border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
                     >
                         <option value="">Tüm Durumlar</option>
                         <option value="CALISAN">ÇALIŞAN</option>
@@ -283,14 +214,17 @@ export default function PersonnelPage() {
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                         {personnelList.map(p => (
-                            <tr key={p.id}>
+                            <tr key={p.id} className="hover:bg-gray-50/50 transition-colors">
                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{p.sicilNo}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{p.fullName}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{p.tcKimlikNo}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{p.gorevi}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{p.grup}</td>
                                 <td className="px-6 py-4 whitespace-nowrap text-center text-sm">
-                                    <span className={`px-2 py-1 text-xs rounded-full ${p.personelDurumu === 'CALISAN' ? 'bg-green-100 text-green-800' : p.personelDurumu === 'AYRILDI' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>
+                                    <span className={`px-2.5 py-1 text-xs rounded-full font-medium ${p.personelDurumu === 'CALISAN' ? 'bg-green-100 text-green-800' :
+                                        p.personelDurumu === 'AYRILDI' ? 'bg-red-100 text-red-800' :
+                                            'bg-gray-100 text-gray-800'
+                                        }`}>
                                         {p.personelDurumu}
                                     </span>
                                 </td>
@@ -298,14 +232,14 @@ export default function PersonnelPage() {
                                     <div className="flex justify-end gap-2">
                                         <button
                                             onClick={() => handleEdit(p)}
-                                            className="text-blue-600 hover:text-blue-900 p-1 hover:bg-blue-50 rounded"
+                                            className="text-blue-600 hover:text-blue-900 p-1.5 hover:bg-blue-50 rounded-lg transition-colors"
                                             title="Düzenle"
                                         >
                                             <Edit size={18} />
                                         </button>
                                         <button
                                             onClick={() => handleDelete(p.id)}
-                                            className="text-red-600 hover:text-red-900 p-1 hover:bg-red-50 rounded"
+                                            className="text-red-600 hover:text-red-900 p-1.5 hover:bg-red-50 rounded-lg transition-colors"
                                             title="Pasife Al"
                                         >
                                             <Trash2 size={18} />
@@ -316,8 +250,21 @@ export default function PersonnelPage() {
                         ))}
                     </tbody>
                 </table>
-                {personnelList.length === 0 && !loading && <div className="p-6 text-center text-gray-500">Kayıt bulunamadı</div>}
-                {loading && <div className="p-6 text-center text-gray-500">Yükleniyor...</div>}
+                {personnelList.length === 0 && !loading && (
+                    <div className="p-12 text-center text-gray-500 flex flex-col items-center">
+                        <div className="mb-3 text-gray-300">
+                            <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                        </div>
+                        <p>Kayıt bulunamadı</p>
+                    </div>
+                )}
+                {loading && (
+                    <div className="p-12 text-center text-gray-500">
+                        <div className="animate-pulse">Yükleniyor...</div>
+                    </div>
+                )}
             </div>
 
             {/* Pagination Controls */}
@@ -326,15 +273,15 @@ export default function PersonnelPage() {
                     <button
                         onClick={() => setPage(p => Math.max(1, p - 1))}
                         disabled={page === 1}
-                        className="px-4 py-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                        className="px-4 py-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:hover:bg-white transition-colors"
                     >
                         Önceki
                     </button>
-                    <span className="text-sm font-medium">Sayfa {page} / {totalPages}</span>
+                    <span className="text-sm font-medium text-gray-600">Sayfa {page} / {totalPages}</span>
                     <button
                         onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                         disabled={page === totalPages}
-                        className="px-4 py-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                        className="px-4 py-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:hover:bg-white transition-colors"
                     >
                         Sonraki
                     </button>
@@ -342,108 +289,15 @@ export default function PersonnelPage() {
             )}
 
             {/* Modal */}
-            {showModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                    <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full p-6">
-                        <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-xl font-bold">{editId ? "Personel Düzenle" : "Yeni Personel Ekle"}</h2>
-                            <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600">x</button>
-                        </div>
-
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Sicil No</label>
-                                    <input required type="text" value={formData.sicilNo} onChange={e => setFormData({ ...formData, sicilNo: e.target.value })} className="w-full border-gray-300 rounded-lg" />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">TCKN</label>
-                                    <input required type="text" value={formData.tcKimlikNo} onChange={e => setFormData({ ...formData, tcKimlikNo: e.target.value })} className="w-full border-gray-300 rounded-lg" />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Ad Soyad</label>
-                                <input required type="text" value={formData.fullName} onChange={e => setFormData({ ...formData, fullName: e.target.value })} className="w-full border-gray-300 rounded-lg" />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Cinsiyet</label>
-                                    <select value={formData.cinsiyet} onChange={e => setFormData({ ...formData, cinsiyet: e.target.value })} className="w-full border-gray-300 rounded-lg">
-                                        <option value="">Seçiniz</option>
-                                        <option value="ERKEK">ERKEK</option>
-                                        <option value="KADIN">KADIN</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Doğum Tarihi</label>
-                                    <input type="date" value={formData.dogumTarihi} onChange={e => setFormData({ ...formData, dogumTarihi: e.target.value })} className="w-full border-gray-300 rounded-lg" />
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Telefon</label>
-                                    <input type="text" value={formData.telefon} onChange={e => setFormData({ ...formData, telefon: e.target.value })} placeholder="05XXXXXXXXX" className="w-full border-gray-300 rounded-lg" />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Görevi</label>
-                                    <input required type="text" value={formData.gorevi} onChange={e => setFormData({ ...formData, gorevi: e.target.value })} className="w-full border-gray-300 rounded-lg" />
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Proje</label>
-                                    <input required type="text" value={formData.projeAdi} onChange={e => setFormData({ ...formData, projeAdi: e.target.value })} className="w-full border-gray-300 rounded-lg" />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Grup</label>
-                                    <select 
-                                        required 
-                                        value={formData.grup} 
-                                        onChange={e => setFormData({ ...formData, grup: e.target.value })} 
-                                        className="w-full border-gray-300 rounded-lg"
-                                    >
-                                        <option value="">Grup Seçiniz</option>
-                                        {groupDefs.map(g => (
-                                            <option key={g.id} value={g.name}>{g.name}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Durum</label>
-                                    <select value={formData.personelDurumu} onChange={e => setFormData({ ...formData, personelDurumu: e.target.value })} className="w-full border-gray-300 rounded-lg">
-                                        <option value="CALISAN">ÇALIŞAN</option>
-                                        <option value="AYRILDI">AYRILDI</option>
-                                        <option value="IZINLI">İZİNLİ</option>
-                                        <option value="PASIF">PASİF</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Adres</label>
-                                <textarea
-                                    value={formData.adres}
-                                    onChange={e => setFormData({ ...formData, adres: e.target.value })}
-                                    className="w-full border-gray-300 rounded-lg"
-                                    rows={3}
-                                />
-                            </div>
-
-                            <div className="flex justify-end pt-4 gap-2">
-                                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 bg-gray-100 rounded-lg">İptal</button>
-                                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg">Kaydet</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
+            <PersonnelModal
+                isOpen={showModal}
+                onClose={() => setShowModal(false)}
+                onSuccess={() => {
+                    loadPersonnel(search);
+                }}
+                editData={selectedPersonnel}
+                groupDefs={groupDefs}
+            />
         </div>
     );
 }

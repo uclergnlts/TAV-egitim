@@ -85,7 +85,7 @@ export default function AdminLayoutClient({ children, session }: AdminLayoutClie
             {/* Logo */}
             <div className="p-6 border-b border-gray-700">
                 <div className="flex items-center space-x-3">
-                    <div className="bg-white/10 p-2 rounded-lg backdrop-blur-sm">
+                    <div className="bg-gray-200 p-2 rounded-lg shadow-sm">
                         <Image
                             src="/tav-guvenlik-logo.png"
                             alt="TAV Güvenlik Logo"
