@@ -7,6 +7,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { login } from "@/lib/auth";
 import { logAction } from "@/lib/audit";
 import { checkRateLimit, getClientIP, RateLimitPresets } from "@/lib/rateLimit";
+import { validateBody } from "@/lib/validationMiddleware";
+import { loginSchema } from "@/lib/validation";
 
 export async function POST(request: NextRequest) {
     try {
@@ -31,19 +33,16 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const body = await request.json();
-        const { sicil_no, password } = body;
-
-        // Validasyon
-        if (!sicil_no || !password) {
+        // Zod validasyonu
+        const validation = await validateBody(request, loginSchema);
+        if (!validation.success) {
             return NextResponse.json(
-                {
-                    success: false,
-                    message: "Sicil numarası ve şifre zorunludur",
-                },
+                { success: false, message: validation.error },
                 { status: 400 }
             );
         }
+
+        const { sicil_no, password } = validation.data;
 
         // Login işlemi
         console.log("Attempting login for:", sicil_no);

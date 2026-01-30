@@ -93,25 +93,29 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ success: false, message: "Yetkisiz işlem" }, { status: 403 });
         }
 
-        const body = await request.json();
-
-        // Validasyon
-        if (!body.sicilNo || !body.fullName || !body.tcKimlikNo) {
-            return NextResponse.json({ success: false, message: "Zorunlu alanlar eksik" }, { status: 400 });
+        // Zod validasyonu
+        const { validateBody } = await import("@/lib/validationMiddleware");
+        const { createPersonnelSchema } = await import("@/lib/validation");
+        
+        const validation = await validateBody(request, createPersonnelSchema);
+        if (!validation.success) {
+            return NextResponse.json({ success: false, message: validation.error }, { status: 400 });
         }
 
+        const data = validation.data;
+
         const [newPersonnel] = await db.insert(personnel).values({
-            sicilNo: body.sicilNo,
-            fullName: body.fullName,
-            tcKimlikNo: body.tcKimlikNo,
-            gorevi: body.gorevi || "Personel",
-            projeAdi: body.projeAdi || "TAV ESB",
-            grup: body.grup || "Genel",
-            personelDurumu: body.personelDurumu || "CALISAN",
-            cinsiyet: body.cinsiyet,
-            telefon: body.telefon,
-            dogumTarihi: body.dogumTarihi,
-            adres: body.adres,
+            sicilNo: data.sicilNo,
+            fullName: data.fullName,
+            tcKimlikNo: data.tcKimlikNo,
+            gorevi: data.gorevi,
+            projeAdi: data.projeAdi,
+            grup: data.grup,
+            personelDurumu: data.personelDurumu,
+            cinsiyet: data.cinsiyet,
+            telefon: data.telefon,
+            dogumTarihi: data.dogumTarihi,
+            adres: data.adres,
         }).returning();
 
         // Audit Log
