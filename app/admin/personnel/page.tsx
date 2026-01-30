@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { Edit, Trash2 } from "lucide-react";
-import PersonnelModal from "@/components/admin/PersonnelModal";
-import { FilterPanel, FilterValue, FilterField } from "@/components/FilterPanel";
+import { LazyPersonnelModal, LazyFilterPanel } from "@/components/LazyComponents";
+import { type FilterValue, type FilterField } from "@/components/FilterPanel";
 import { type Personnel } from "@/lib/db/schema";
 
 interface GroupDef {
@@ -181,15 +181,21 @@ export default function PersonnelPage() {
 
             </div>
 
-            {/* Advanced Filters */}
-            <FilterPanel
-                fields={filterFields}
-                filters={filters}
-                onChange={setFilters}
-                onApply={() => { setPage(1); loadPersonnel(); }}
-                onReset={() => { setFilters([]); setPage(1); loadPersonnel(); }}
-                loading={loading}
-            />
+            {/* Advanced Filters - Lazy Loaded */}
+            <Suspense fallback={
+                <div className="bg-white rounded-xl border shadow-sm p-4 animate-pulse">
+                    <div className="h-10 bg-gray-200 rounded w-full"></div>
+                </div>
+            }>
+                <LazyFilterPanel
+                    fields={filterFields}
+                    filters={filters}
+                    onChange={setFilters}
+                    onApply={() => { setPage(1); loadPersonnel(); }}
+                    onReset={() => { setFilters([]); setPage(1); loadPersonnel(); }}
+                    loading={loading}
+                />
+            </Suspense>
 
             <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
                 <table className="min-w-full divide-y divide-gray-200">
@@ -305,16 +311,31 @@ export default function PersonnelPage() {
                 </div>
             )}
 
-            {/* Modal */}
-            <PersonnelModal
-                isOpen={showModal}
-                onClose={() => setShowModal(false)}
-                onSuccess={() => {
-                    loadPersonnel(search);
-                }}
-                editData={selectedPersonnel}
-                groupDefs={groupDefs}
-            />
+            {/* Modal - Lazy Loaded */}
+            {showModal && (
+                <Suspense fallback={
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                        <div className="bg-white rounded-xl shadow-xl p-8 w-full max-w-2xl animate-pulse">
+                            <div className="h-8 bg-gray-200 rounded w-1/3 mb-6"></div>
+                            <div className="space-y-4">
+                                <div className="h-12 bg-gray-100 rounded"></div>
+                                <div className="h-12 bg-gray-100 rounded"></div>
+                                <div className="h-12 bg-gray-100 rounded"></div>
+                            </div>
+                        </div>
+                    </div>
+                }>
+                    <LazyPersonnelModal
+                        isOpen={showModal}
+                        onClose={() => setShowModal(false)}
+                        onSuccess={() => {
+                            loadPersonnel(search);
+                        }}
+                        editData={selectedPersonnel}
+                        groupDefs={groupDefs}
+                    />
+                </Suspense>
+            )}
         </div>
     );
 }

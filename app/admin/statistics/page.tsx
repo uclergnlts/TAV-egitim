@@ -1,11 +1,22 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { MONTHS_TR } from "@/lib/utils";
-import {
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-    PieChart, Pie, Cell, LineChart, Line, AreaChart, Area
-} from "recharts";
+import dynamic from "next/dynamic";
+
+// Lazy load chart components
+const ResponsiveContainer = dynamic(() => import("recharts").then((mod) => mod.ResponsiveContainer), { ssr: false });
+const AreaChart = dynamic(() => import("recharts").then((mod) => mod.AreaChart), { ssr: false });
+const Area = dynamic(() => import("recharts").then((mod) => mod.Area), { ssr: false });
+const BarChart = dynamic(() => import("recharts").then((mod) => mod.BarChart), { ssr: false });
+const Bar = dynamic(() => import("recharts").then((mod) => mod.Bar), { ssr: false });
+const PieChart = dynamic(() => import("recharts").then((mod) => mod.PieChart), { ssr: false });
+const Pie = dynamic(() => import("recharts").then((mod) => mod.Pie), { ssr: false });
+const Cell = dynamic(() => import("recharts").then((mod) => mod.Cell), { ssr: false });
+const XAxis = dynamic(() => import("recharts").then((mod) => mod.XAxis), { ssr: false });
+const YAxis = dynamic(() => import("recharts").then((mod) => mod.YAxis), { ssr: false });
+const CartesianGrid = dynamic(() => import("recharts").then((mod) => mod.CartesianGrid), { ssr: false });
+const Tooltip = dynamic(() => import("recharts").then((mod) => mod.Tooltip), { ssr: false });
 
 interface StatisticsData {
     year: number;
@@ -144,105 +155,126 @@ export default function StatisticsPage() {
                 </div>
             </div>
 
-            {/* Charts Row 1 */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Monthly Trend */}
-                <div className="bg-white rounded-xl shadow-sm border p-4 md:p-6">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Aylık Katılım Trendi</h3>
-                    <div className="h-64 md:h-80">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={monthlyChartData}>
-                                <defs>
-                                    <linearGradient id="colorKatilim" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
-                                        <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                                <YAxis tick={{ fontSize: 12 }} />
-                                <Tooltip
-                                    contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb' }}
-                                    labelFormatter={(label, payload) => payload[0]?.payload?.fullName || label}
-                                />
-                                <Area type="monotone" dataKey="Katılım" stroke="#3B82F6" strokeWidth={2} fill="url(#colorKatilim)" />
-                            </AreaChart>
-                        </ResponsiveContainer>
+            {/* Charts Row 1 - Lazy Loaded */}
+            <Suspense fallback={
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {[1, 2].map((i) => (
+                        <div key={i} className="bg-white rounded-xl shadow-sm border p-6 h-80 animate-pulse">
+                            <div className="h-4 bg-gray-200 rounded w-1/3 mb-4"></div>
+                            <div className="h-64 bg-gray-100 rounded"></div>
+                        </div>
+                    ))}
+                </div>
+            }>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Monthly Trend */}
+                    <div className="bg-white rounded-xl shadow-sm border p-4 md:p-6">
+                        <h3 className="text-lg font-semibold text-gray-800 mb-4">Aylık Katılım Trendi</h3>
+                        <div className="h-64 md:h-80">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart data={monthlyChartData}>
+                                    <defs>
+                                        <linearGradient id="colorKatilim" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
+                                            <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                    <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                                    <YAxis tick={{ fontSize: 12 }} />
+                                    <Tooltip
+                                        contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb' }}
+                                        labelFormatter={(label, payload) => payload[0]?.payload?.fullName || label}
+                                    />
+                                    <Area type="monotone" dataKey="Katılım" stroke="#3B82F6" strokeWidth={2} fill="url(#colorKatilim)" />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+
+                    {/* Top Trainings */}
+                    <div className="bg-white rounded-xl shadow-sm border p-4 md:p-6">
+                        <h3 className="text-lg font-semibold text-gray-800 mb-4">En Çok Verilen Eğitimler</h3>
+                        <div className="h-64 md:h-80">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={data?.topTrainings.slice(0, 8)} layout="vertical">
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                    <XAxis type="number" tick={{ fontSize: 11 }} />
+                                    <YAxis dataKey="code" type="category" width={80} tick={{ fontSize: 10 }} />
+                                    <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb' }} />
+                                    <Bar dataKey="count" fill="#10B981" radius={[0, 4, 4, 0]} name="Katılım" />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
                     </div>
                 </div>
+            </Suspense>
 
-                {/* Top Trainings */}
-                <div className="bg-white rounded-xl shadow-sm border p-4 md:p-6">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">En Çok Verilen Eğitimler</h3>
-                    <div className="h-64 md:h-80">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={data?.topTrainings.slice(0, 8)} layout="vertical">
-                                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                                <XAxis type="number" tick={{ fontSize: 11 }} />
-                                <YAxis dataKey="code" type="category" width={80} tick={{ fontSize: 10 }} />
-                                <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb' }} />
-                                <Bar dataKey="count" fill="#10B981" radius={[0, 4, 4, 0]} name="Katılım" />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
+            {/* Charts Row 2 - Lazy Loaded */}
+            <Suspense fallback={
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {[1, 2, 3].map((i) => (
+                        <div key={i} className="bg-white rounded-xl shadow-sm border p-6 h-64 animate-pulse">
+                            <div className="h-4 bg-gray-200 rounded w-1/3 mb-4"></div>
+                            <div className="h-48 bg-gray-100 rounded"></div>
+                        </div>
+                    ))}
                 </div>
-            </div>
-
-            {/* Charts Row 2 */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Group Distribution Pie */}
-                <div className="bg-white rounded-xl shadow-sm border p-4 md:p-6">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Grup Dağılımı</h3>
-                    <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie
-                                    data={pieData}
-                                    dataKey="value"
-                                    nameKey="name"
-                                    cx="50%"
-                                    cy="50%"
-                                    outerRadius={80}
-                                    label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
-                                    labelLine={false}
-                                >
-                                    {pieData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.color} />
-                                    ))}
-                                </Pie>
-                                <Tooltip contentStyle={{ borderRadius: '8px' }} />
-                            </PieChart>
-                        </ResponsiveContainer>
+            }>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Group Distribution Pie */}
+                    <div className="bg-white rounded-xl shadow-sm border p-4 md:p-6">
+                        <h3 className="text-lg font-semibold text-gray-800 mb-4">Grup Dağılımı</h3>
+                        <div className="h-64">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie
+                                        data={pieData}
+                                        dataKey="value"
+                                        nameKey="name"
+                                        cx="50%"
+                                        cy="50%"
+                                        outerRadius={80}
+                                        label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
+                                        labelLine={false}
+                                    >
+                                        {pieData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={entry.color} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip contentStyle={{ borderRadius: '8px' }} />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
                     </div>
-                </div>
 
-                {/* Location Type */}
-                <div className="bg-white rounded-xl shadow-sm border p-4 md:p-6">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">İç/Dış Eğitim</h3>
-                    <div className="h-64">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie
-                                    data={locationData}
-                                    dataKey="value"
-                                    nameKey="name"
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={50}
-                                    outerRadius={80}
-                                    label={({ name, value }) => `${name}: ${value}`}
-                                >
-                                    {locationData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={entry.color} />
-                                    ))}
-                                </Pie>
-                                <Tooltip contentStyle={{ borderRadius: '8px' }} />
-                            </PieChart>
-                        </ResponsiveContainer>
+                    {/* Location Type */}
+                    <div className="bg-white rounded-xl shadow-sm border p-4 md:p-6">
+                        <h3 className="text-lg font-semibold text-gray-800 mb-4">İç/Dış Eğitim</h3>
+                        <div className="h-64">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie
+                                        data={locationData}
+                                        dataKey="value"
+                                        nameKey="name"
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={50}
+                                        outerRadius={80}
+                                        label={({ name, value }) => `${name}: ${value}`}
+                                    >
+                                        {locationData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={entry.color} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip contentStyle={{ borderRadius: '8px' }} />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
                     </div>
-                </div>
 
-                {/* Top Data Entry Staff */}
+                    {/* Top Data Entry Staff */}
                 <div className="bg-white rounded-xl shadow-sm border p-4 md:p-6">
                     <h3 className="text-lg font-semibold text-gray-800 mb-4">En Aktif Veri Girenler</h3>
                     <div className="space-y-3 max-h-64 overflow-y-auto">
@@ -265,6 +297,7 @@ export default function StatisticsPage() {
                     </div>
                 </div>
             </div>
+            </Suspense>
 
             {/* Monthly Detail Table */}
             <div className="bg-white rounded-xl shadow-sm border overflow-hidden">

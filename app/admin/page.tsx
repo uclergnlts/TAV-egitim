@@ -1,32 +1,64 @@
+"use client";
+
 /**
  * Admin Dashboard
  */
 
 import Link from "next/link";
-import DashboardCharts from "./components/DashboardCharts";
+import { Suspense } from "react";
+import dynamic from "next/dynamic";
+
+// Lazy load DashboardCharts - heavy component with recharts
+const DashboardCharts = dynamic(
+  () => import("./components/DashboardCharts"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="bg-white rounded-xl shadow-sm border p-6 h-80 animate-pulse">
+            <div className="h-4 bg-gray-200 rounded w-1/3 mb-4"></div>
+            <div className="h-64 bg-gray-100 rounded"></div>
+          </div>
+        ))}
+      </div>
+    ),
+  }
+);
 
 export default function AdminDashboard() {
-    const currentYear = new Date().getFullYear();
+  const currentYear = new Date().getFullYear();
 
-    return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-                    <p className="text-gray-500 text-sm mt-1">Eğitim yönetim sistemi genel özeti</p>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-gray-500">
-                    <span className="flex items-center gap-1">
-                        <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                        Canlı
-                    </span>
-                    <span className="text-gray-300">|</span>
-                    <span>{new Date().toLocaleDateString("tr-TR", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</span>
-                </div>
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-gray-500 text-sm mt-1">Eğitim yönetim sistemi genel özeti</p>
+        </div>
+        <div className="flex items-center gap-2 text-sm text-gray-500">
+          <span className="flex items-center gap-1">
+            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+            Canlı
+          </span>
+          <span className="text-gray-300">|</span>
+          <span>{new Date().toLocaleDateString("tr-TR", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</span>
+        </div>
+      </div>
+
+      {/* Charts Section - Lazy Loaded */}
+      <Suspense fallback={
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="bg-white rounded-xl shadow-sm border p-6 h-80 animate-pulse">
+              <div className="h-4 bg-gray-200 rounded w-1/3 mb-4"></div>
+              <div className="h-64 bg-gray-100 rounded"></div>
             </div>
-
-            {/* Charts Section */}
-            <DashboardCharts />
+          ))}
+        </div>
+      }>
+        <DashboardCharts />
+      </Suspense>
 
             {/* Quick Links */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
