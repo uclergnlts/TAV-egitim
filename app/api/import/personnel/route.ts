@@ -9,6 +9,7 @@ import { db, personnel } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { getSession } from "@/lib/auth";
 import { logAction } from "@/lib/audit";
+import { checkRateLimit, getClientIP, RateLimitPresets } from "@/lib/rateLimit";
 
 interface PersonnelImportRow {
     sicilNo: string;
@@ -26,6 +27,27 @@ interface PersonnelImportRow {
 
 export async function POST(request: NextRequest) {
     try {
+        // Rate limiting kontrolü
+        const clientIP = getClientIP(request);
+        const rateLimitResult = checkRateLimit(`import:personnel:${clientIP}`, RateLimitPresets.export);
+        
+        if (!rateLimitResult.allowed) {
+            return NextResponse.json(
+                { 
+                    success: false, 
+                    message: "Çok fazla import isteği. Lütfen bir süre bekleyin." 
+                },
+                { 
+                    status: 429,
+                    headers: {
+                        'X-RateLimit-Limit': rateLimitResult.limit.toString(),
+                        'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
+                        'X-RateLimit-Reset': new Date(rateLimitResult.resetTime).toISOString(),
+                    }
+                }
+            );
+        }
+
         const session = await getSession();
         if (!session || session.role !== "ADMIN") {
             return NextResponse.json({ success: false, message: "Yetkisiz işlem" }, { status: 403 });

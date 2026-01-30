@@ -1,11 +1,33 @@
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db, attendances, trainings, trainers } from "@/lib/db";
 import { eq, and, like, desc, gte, lte, or, sql } from "drizzle-orm";
 import { getSession } from "@/lib/auth";
+import { checkRateLimit, getClientIP, RateLimitPresets } from "@/lib/rateLimit";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
     try {
+        // Rate limiting kontrolü
+        const clientIP = getClientIP(request);
+        const rateLimitResult = checkRateLimit(`reports:detail:${clientIP}`, RateLimitPresets.export);
+        
+        if (!rateLimitResult.allowed) {
+            return NextResponse.json(
+                { 
+                    success: false, 
+                    message: "Çok fazla rapor isteği. Lütfen bir süre bekleyin." 
+                },
+                { 
+                    status: 429,
+                    headers: {
+                        'X-RateLimit-Limit': rateLimitResult.limit.toString(),
+                        'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
+                        'X-RateLimit-Reset': new Date(rateLimitResult.resetTime).toISOString(),
+                    }
+                }
+            );
+        }
+
         const session = await getSession();
         if (!session) {
             return NextResponse.json({ success: false }, { status: 401 });

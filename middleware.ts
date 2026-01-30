@@ -1,11 +1,12 @@
 /**
  * Next.js Middleware
- * Rol bazlı yetkilendirme ve route koruması
+ * Rol bazlı yetkilendirme, route koruması ve rate limiting
  */
 
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
+import { checkRateLimit, getClientIP, RateLimitPresets } from "./lib/rateLimit";
 
 const JWT_SECRET = new TextEncoder().encode(
     process.env.JWT_SECRET || "fallback-secret-key-for-development-only"
@@ -25,12 +26,45 @@ const adminOnlyRoutes = [
 // Sadece CHEF erişebilir
 const chefOnlyRoutes = ["/chef"];
 
+// Rate limit uygulanacak route'lar
+const rateLimitedRoutes = [
+    { path: "/api/auth/login", config: RateLimitPresets.strict },
+    { path: "/api/import", config: RateLimitPresets.export },
+    { path: "/api/reports", config: RateLimitPresets.export },
+    { path: "/api/", config: RateLimitPresets.standard },
+];
+
 export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
     // Public route kontrolü
     if (publicRoutes.some((route) => pathname === route || pathname.startsWith("/api/auth/"))) {
         return NextResponse.next();
+    }
+
+    // Rate limiting kontrolü (sadece API route'ları için)
+    if (pathname.startsWith("/api/")) {
+        const clientIP = getClientIP(request);
+        const rateLimitConfig = rateLimitedRoutes.find(r => pathname.startsWith(r.path))?.config || RateLimitPresets.standard;
+        
+        const rateLimitResult = checkRateLimit(`api:${clientIP}:${pathname}`, rateLimitConfig);
+        
+        if (!rateLimitResult.allowed) {
+            return NextResponse.json(
+                { 
+                    success: false, 
+                    message: "Çok fazla istek gönderdiniz. Lütfen bir süre bekleyin." 
+                },
+                { 
+                    status: 429,
+                    headers: {
+                        'X-RateLimit-Limit': rateLimitResult.limit.toString(),
+                        'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
+                        'X-RateLimit-Reset': new Date(rateLimitResult.resetTime).toISOString(),
+                    }
+                }
+            );
+        }
     }
 
     // Token kontrolü

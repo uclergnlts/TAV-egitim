@@ -6,9 +6,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import { login } from "@/lib/auth";
 import { logAction } from "@/lib/audit";
+import { checkRateLimit, getClientIP, RateLimitPresets } from "@/lib/rateLimit";
 
 export async function POST(request: NextRequest) {
     try {
+        // Rate limiting kontrolü (IP bazlı)
+        const clientIP = getClientIP(request);
+        const rateLimitResult = checkRateLimit(`login:${clientIP}`, RateLimitPresets.strict);
+        
+        if (!rateLimitResult.allowed) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: "Çok fazla giriş denemesi. Lütfen bir süre bekleyin.",
+                },
+                { 
+                    status: 429,
+                    headers: {
+                        'X-RateLimit-Limit': rateLimitResult.limit.toString(),
+                        'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
+                        'X-RateLimit-Reset': new Date(rateLimitResult.resetTime).toISOString(),
+                    }
+                }
+            );
+        }
+
         const body = await request.json();
         const { sicil_no, password } = body;
 
