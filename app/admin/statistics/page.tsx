@@ -124,6 +124,7 @@ export default function StatisticsPage() {
                     value={year}
                     onChange={(e) => setYear(parseInt(e.target.value))}
                     className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm font-medium bg-white"
+                    aria-label="Yıl seçin"
                 >
                     {years.map((y) => (
                         <option key={y} value={y}>{y}</option>
@@ -275,7 +276,7 @@ export default function StatisticsPage() {
                     </div>
 
                     {/* Top Data Entry Staff */}
-                <div className="bg-white rounded-xl shadow-sm border p-4 md:p-6">
+                    <div className="bg-white rounded-xl shadow-sm border p-4 md:p-6">
                     <h3 className="text-lg font-semibold text-gray-800 mb-4">En Aktif Veri Girenler</h3>
                     <div className="space-y-3 max-h-64 overflow-y-auto">
                         {data?.trainerStats.map((t, i) => (
@@ -295,8 +296,8 @@ export default function StatisticsPage() {
                             </div>
                         ))}
                     </div>
+                    </div>
                 </div>
-            </div>
             </Suspense>
 
             {/* Monthly Detail Table */}
