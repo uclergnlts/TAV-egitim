@@ -23,8 +23,7 @@ export async function GET(request: NextRequest) {
         const query = searchParams.get("query") || "";
         const sortBy = searchParams.get("sortBy") || "fullName";
         const sortOrder = searchParams.get("sortOrder") || "asc";
-        const filterGrup = searchParams.get("filterGrup") || "";
-        const filterDurumu = searchParams.get("filterDurumu") || "";
+        const advancedFiltersParam = searchParams.get("advancedFilters") || "";
 
         const offset = (page - 1) * limit;
 
@@ -36,11 +35,49 @@ export async function GET(request: NextRequest) {
                 like(personnel.fullName, `%${query}%`)
             ));
         }
-        if (filterGrup) {
-            filters.push(eq(personnel.grup, filterGrup));
-        }
-        if (filterDurumu) {
-            filters.push(eq(personnel.personelDurumu, filterGrup as any));
+
+        // Parse and apply advanced filters
+        if (advancedFiltersParam) {
+            try {
+                const advancedFilters = JSON.parse(advancedFiltersParam);
+                for (const filter of advancedFilters) {
+                    const { field, operator, value } = filter;
+                    
+                    if (!value && value !== false && value !== 0) continue;
+
+                    switch (operator) {
+                        case "eq":
+                            filters.push(eq(personnel[field as keyof typeof personnel] as any, value));
+                            break;
+                        case "ne":
+                            filters.push(sql`${personnel[field as keyof typeof personnel]} != ${value}`);
+                            break;
+                        case "contains":
+                            filters.push(like(personnel[field as keyof typeof personnel] as any, `%${value}%`));
+                            break;
+                        case "startsWith":
+                            filters.push(like(personnel[field as keyof typeof personnel] as any, `${value}%`));
+                            break;
+                        case "endsWith":
+                            filters.push(like(personnel[field as keyof typeof personnel] as any, `%${value}`));
+                            break;
+                        case "gt":
+                            filters.push(sql`${personnel[field as keyof typeof personnel]} > ${value}`);
+                            break;
+                        case "gte":
+                            filters.push(sql`${personnel[field as keyof typeof personnel]} >= ${value}`);
+                            break;
+                        case "lt":
+                            filters.push(sql`${personnel[field as keyof typeof personnel]} < ${value}`);
+                            break;
+                        case "lte":
+                            filters.push(sql`${personnel[field as keyof typeof personnel]} <= ${value}`);
+                            break;
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to parse advanced filters:", e);
+            }
         }
 
         const whereClause = filters.length > 0 ? and(...filters) : undefined;

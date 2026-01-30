@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Edit, Trash2 } from "lucide-react";
 import PersonnelModal from "@/components/admin/PersonnelModal";
+import { FilterPanel, FilterValue, FilterField } from "@/components/FilterPanel";
 import { type Personnel } from "@/lib/db/schema";
 
 interface GroupDef {
@@ -10,6 +11,36 @@ interface GroupDef {
     name: string;
     isActive: boolean;
 }
+
+// Filter fields configuration
+const filterFields: FilterField[] = [
+    { key: "fullName", label: "Ad Soyad", type: "text", placeholder: "Ad soyad ara..." },
+    { key: "sicilNo", label: "Sicil No", type: "text", placeholder: "Sicil numarası..." },
+    { key: "tcKimlikNo", label: "TC Kimlik No", type: "text", placeholder: "TC Kimlik No..." },
+    { key: "gorevi", label: "Görevi", type: "text", placeholder: "Görevi..." },
+    { key: "projeAdi", label: "Proje Adı", type: "text", placeholder: "Proje adı..." },
+    { key: "grup", label: "Grup", type: "text", placeholder: "Grup..." },
+    { 
+        key: "personelDurumu", 
+        label: "Durum", 
+        type: "select",
+        options: [
+            { value: "CALISAN", label: "Çalışan" },
+            { value: "AYRILDI", label: "Ayrıldı" },
+            { value: "IZINLI", label: "İzinli" },
+            { value: "PASIF", label: "Pasif" },
+        ]
+    },
+    { 
+        key: "cinsiyet", 
+        label: "Cinsiyet", 
+        type: "select",
+        options: [
+            { value: "ERKEK", label: "Erkek" },
+            { value: "KADIN", label: "Kadın" },
+        ]
+    },
+];
 
 export default function PersonnelPage() {
     const [personnelList, setPersonnelList] = useState<Personnel[]>([]);
@@ -23,7 +54,7 @@ export default function PersonnelPage() {
 
     // Sort & Filter
     const [sortConfig, setSortConfig] = useState({ key: "fullName", direction: "asc" });
-    const [filters, setFilters] = useState({ grup: "", durum: "" });
+    const [filters, setFilters] = useState<FilterValue[]>([]);
 
     const [showModal, setShowModal] = useState(false);
     const [selectedPersonnel, setSelectedPersonnel] = useState<Personnel | null>(null);
@@ -59,14 +90,15 @@ export default function PersonnelPage() {
             params.append("limit", "50");
             params.append("sortBy", sortConfig.key);
             params.append("sortOrder", sortConfig.direction);
-            if (filters.grup) params.append("filterGrup", filters.grup);
-            if (filters.durum) params.append("filterDurumu", filters.durum);
+            
+            // Add advanced filters
+            if (filters.length > 0) {
+                params.append("advancedFilters", JSON.stringify(filters));
+            }
 
             const res = await fetch(`/api/personnel?${params.toString()}`);
             const data = await res.json();
             if (data.success) {
-                // API-side filtering is active, so we rely on API data mainly.
-                // But let's keeping consistent with previous logic if needed.
                 setPersonnelList(data.data);
                 if (data.pagination) {
                     setTotalPages(data.pagination.totalPages);
@@ -147,32 +179,17 @@ export default function PersonnelPage() {
                     <button type="submit" className="px-6 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors">Ara</button>
                 </form>
 
-                {/* Filters */}
-                <div className="flex gap-2">
-                    <select
-                        value={filters.grup}
-                        onChange={e => { setFilters({ ...filters, grup: e.target.value }); setPage(1); }}
-                        className="border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
-                    >
-                        <option value="">Tüm Gruplar</option>
-                        {groupDefs.map(g => (
-                            <option key={g.id} value={g.name}>{g.name}</option>
-                        ))}
-                    </select>
-
-                    <select
-                        value={filters.durum}
-                        onChange={e => { setFilters({ ...filters, durum: e.target.value }); setPage(1); }}
-                        className="border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
-                    >
-                        <option value="">Tüm Durumlar</option>
-                        <option value="CALISAN">ÇALIŞAN</option>
-                        <option value="IZINLI">İZİNLİ</option>
-                        <option value="AYRILDI">AYRILDI</option>
-                        <option value="PASIF">PASİF</option>
-                    </select>
-                </div>
             </div>
+
+            {/* Advanced Filters */}
+            <FilterPanel
+                fields={filterFields}
+                filters={filters}
+                onChange={setFilters}
+                onApply={() => { setPage(1); loadPersonnel(); }}
+                onReset={() => { setFilters([]); setPage(1); loadPersonnel(); }}
+                loading={loading}
+            />
 
             <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
                 <table className="min-w-full divide-y divide-gray-200">
