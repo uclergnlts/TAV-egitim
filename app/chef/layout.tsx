@@ -9,6 +9,7 @@ export const dynamic = 'force-dynamic';
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import ChefLayoutClient from "./ChefLayoutClient";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 export default async function ChefLayout({
     children,
@@ -27,13 +28,15 @@ export default async function ChefLayout({
     }
 
     return (
-        <ChefLayoutClient
-            session={{
-                fullName: session.fullName,
-                sicilNo: session.sicilNo,
-            }}
-        >
-            {children}
-        </ChefLayoutClient>
+        <ErrorBoundary>
+            <ChefLayoutClient
+                session={{
+                    fullName: session.fullName,
+                    sicilNo: session.sicilNo,
+                }}
+            >
+                {children}
+            </ChefLayoutClient>
+        </ErrorBoundary>
     );
 }

@@ -9,6 +9,7 @@ export const dynamic = 'force-dynamic';
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import AdminLayoutClient from "./AdminLayoutClient";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 export default async function AdminLayout({
     children,
@@ -27,13 +28,15 @@ export default async function AdminLayout({
     }
 
     return (
-        <AdminLayoutClient
-            session={{
-                fullName: session.fullName,
-                sicilNo: session.sicilNo,
-            }}
-        >
-            {children}
-        </AdminLayoutClient>
+        <ErrorBoundary>
+            <AdminLayoutClient
+                session={{
+                    fullName: session.fullName,
+                    sicilNo: session.sicilNo,
+                }}
+            >
+                {children}
+            </AdminLayoutClient>
+        </ErrorBoundary>
     );
 }
