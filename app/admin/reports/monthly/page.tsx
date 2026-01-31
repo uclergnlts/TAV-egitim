@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { MONTHS_TR } from "@/lib/utils";
 import { useToast } from "@/components/ToastProvider";
 import * as XLSX from "xlsx";
@@ -34,6 +34,226 @@ interface AttendanceRow {
 // Tarih modları
 type DateMode = 'month' | 'range';
 
+// Inline Editable Cell Component
+interface EditableCellProps {
+    value: string;
+    rowId: string;
+    field: string;
+    type?: 'text' | 'date' | 'time' | 'number' | 'select';
+    options?: { value: string; label: string }[];
+    onSave: (rowId: string, field: string, value: string) => Promise<void>;
+    className?: string;
+}
+
+function EditableCell({ value, rowId, field, type = 'text', options, onSave, className = '' }: EditableCellProps) {
+    const [isEditing, setIsEditing] = useState(false);
+    const [editValue, setEditValue] = useState(value);
+    const [isSaving, setIsSaving] = useState(false);
+
+    useEffect(() => {
+        setEditValue(value);
+    }, [value]);
+
+    const handleSave = async () => {
+        if (editValue === value) {
+            setIsEditing(false);
+            return;
+        }
+
+        setIsSaving(true);
+        try {
+            await onSave(rowId, field, editValue);
+            setIsEditing(false);
+        } catch (err) {
+            setEditValue(value); // Revert on error
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter') {
+            handleSave();
+        } else if (e.key === 'Escape') {
+            setEditValue(value);
+            setIsEditing(false);
+        }
+    };
+
+    const handleBlur = () => {
+        handleSave();
+    };
+
+    if (isEditing) {
+        if (type === 'select' && options) {
+            return (
+                <select
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    onBlur={handleBlur}
+                    onKeyDown={handleKeyDown}
+                    disabled={isSaving}
+                    className={`w-full px-1 py-0.5 text-xs border border-blue-500 rounded focus:ring-1 focus:ring-blue-500 ${className}`}
+                    autoFocus
+                >
+                    {options.map((opt) => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                </select>
+            );
+        }
+
+        return (
+            <input
+                type={type}
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                onBlur={handleBlur}
+                onKeyDown={handleKeyDown}
+                disabled={isSaving}
+                className={`w-full px-1 py-0.5 text-xs border border-blue-500 rounded focus:ring-1 focus:ring-blue-500 ${className}`}
+                autoFocus
+            />
+        );
+    }
+
+    return (
+        <div
+            onClick={() => setIsEditing(true)}
+            className={`cursor-pointer hover:bg-blue-50 hover:text-blue-700 rounded px-1 py-0.5 transition-colors ${className} ${isSaving ? 'opacity-50' : ''}`}
+            title="Düzenlemek için tıklayın"
+        >
+            {value || '-'}
+        </div>
+    );
+}
+
+// Status Toggle Component
+interface StatusToggleProps {
+    value: string;
+    rowId: string;
+    onSave: (rowId: string, field: string, value: string) => Promise<void>;
+}
+
+function StatusToggle({ value, rowId, onSave }: StatusToggleProps) {
+    const [isSaving, setIsSaving] = useState(false);
+
+    const toggleStatus = async () => {
+        const newStatus = value === 'CALISAN' ? 'AYRILDI' : 'CALISAN';
+        setIsSaving(true);
+        try {
+            await onSave(rowId, 'personel_durumu', newStatus);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const getStatusStyle = (status: string) => {
+        switch (status) {
+            case 'CALISAN':
+                return 'bg-green-100 text-green-800 hover:bg-green-200';
+            case 'AYRILDI':
+                return 'bg-red-100 text-red-800 hover:bg-red-200';
+            case 'PASIF':
+                return 'bg-gray-200 text-gray-600 hover:bg-gray-300';
+            case 'IZINLI':
+                return 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200';
+            default:
+                return 'bg-gray-100 text-gray-700 hover:bg-gray-200';
+        }
+    };
+
+    return (
+        <button
+            onClick={toggleStatus}
+            disabled={isSaving}
+            className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors cursor-pointer ${getStatusStyle(value)} ${isSaving ? 'opacity-50' : ''}`}
+            title="Durumu değiştirmek için tıklayın (Çalışan ↔ Ayrıldı)"
+        >
+            {isSaving ? '...' : value}
+        </button>
+    );
+}
+
+// Inline Text Area Component for longer text
+interface EditableTextAreaProps {
+    value: string | null;
+    rowId: string;
+    field: string;
+    onSave: (rowId: string, field: string, value: string) => Promise<void>;
+    className?: string;
+    maxLength?: number;
+}
+
+function EditableTextArea({ value, rowId, field, onSave, className = '', maxLength = 200 }: EditableTextAreaProps) {
+    const [isEditing, setIsEditing] = useState(false);
+    const [editValue, setEditValue] = useState(value || '');
+    const [isSaving, setIsSaving] = useState(false);
+
+    useEffect(() => {
+        setEditValue(value || '');
+    }, [value]);
+
+    const handleSave = async () => {
+        const currentValue = value || '';
+        if (editValue === currentValue) {
+            setIsEditing(false);
+            return;
+        }
+
+        setIsSaving(true);
+        try {
+            await onSave(rowId, field, editValue);
+            setIsEditing(false);
+        } catch (err) {
+            setEditValue(currentValue);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter' && e.ctrlKey) {
+            handleSave();
+        } else if (e.key === 'Escape') {
+            setEditValue(value || '');
+            setIsEditing(false);
+        }
+    };
+
+    if (isEditing) {
+        return (
+            <div className="relative">
+                <textarea
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    onBlur={handleSave}
+                    onKeyDown={handleKeyDown}
+                    disabled={isSaving}
+                    maxLength={maxLength}
+                    rows={2}
+                    className={`w-full px-1 py-0.5 text-xs border border-blue-500 rounded focus:ring-1 focus:ring-blue-500 resize-none ${className}`}
+                    autoFocus
+                />
+                <div className="text-[9px] text-gray-400 mt-0.5">
+                    Ctrl+Enter: Kaydet | Esc: İptal
+                </div>
+            </div>
+        );
+    }
+
+    const displayValue = value || '-';
+    return (
+        <div
+            onClick={() => setIsEditing(true)}
+            className={`cursor-pointer hover:bg-blue-50 hover:text-blue-700 rounded px-1 py-0.5 transition-colors truncate ${className} ${isSaving ? 'opacity-50' : ''}`}
+            title={displayValue}
+        >
+            {displayValue}
+        </div>
+    );
+}
+
 export default function MonthlyReportPage() {
     const currentYear = new Date().getFullYear();
     const currentMonth = new Date().getMonth() + 1;
@@ -59,18 +279,6 @@ export default function MonthlyReportPage() {
     // Silme modalı
     const [deleteId, setDeleteId] = useState<string | null>(null);
     const [deleteLoading, setDeleteLoading] = useState(false);
-    
-    // Düzenleme modalı
-    const [editRow, setEditRow] = useState<AttendanceRow | null>(null);
-    const [editLoading, setEditLoading] = useState(false);
-    const [editForm, setEditForm] = useState({
-        baslama_tarihi: '',
-        bitis_tarihi: '',
-        baslama_saati: '',
-        bitis_saati: '',
-        egitim_yeri: '',
-        egitim_detayli_aciklama: ''
-    });
     
     const toast = useToast();
 
@@ -170,48 +378,43 @@ export default function MonthlyReportPage() {
         }
     };
 
-    // Düzenleme modalını aç
-    const openEditModal = (row: AttendanceRow) => {
-        setEditRow(row);
-        setEditForm({
-            baslama_tarihi: row.baslama_tarihi,
-            bitis_tarihi: row.bitis_tarihi,
-            baslama_saati: row.baslama_saati,
-            bitis_saati: row.bitis_saati,
-            egitim_yeri: row.egitim_yeri,
-            egitim_detayli_aciklama: row.egitim_detayli_aciklama || ''
-        });
-    };
-
-    // Düzenleme kaydet
-    const handleEdit = async () => {
-        if (!editRow) return;
-        
-        setEditLoading(true);
+    // Inline edit handler - auto save
+    const handleInlineEdit = useCallback(async (rowId: string, field: string, value: string) => {
         try {
             const res = await fetch('/api/attendances', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    id: editRow.id,
-                    ...editForm
+                    id: rowId,
+                    field: field,
+                    value: value
                 })
             });
             const result = await res.json();
             if (result.success) {
-                toast.success("Kayıt başarıyla güncellendi");
-                loadData();
-                setEditRow(null);
+                // Update local state
+                setData(prev => {
+                    if (!prev) return prev;
+                    return {
+                        ...prev,
+                        rows: prev.rows.map(row => 
+                            row.id === rowId 
+                                ? { ...row, [field]: value }
+                                : row
+                        )
+                    };
+                });
+                toast.success("Güncellendi");
             } else {
                 toast.error(result.message || "Güncelleme başarısız");
+                throw new Error(result.message);
             }
         } catch (err) {
-            console.error("Edit failed:", err);
+            console.error("Inline edit failed:", err);
             toast.error("Güncelleme başarısız");
-        } finally {
-            setEditLoading(false);
+            throw err;
         }
-    };
+    }, [toast]);
 
     const exportToExcel = () => {
         if (!data?.rows.length) return;
@@ -266,6 +469,17 @@ export default function MonthlyReportPage() {
 
     const totalMinutes = data?.total_minutes || 0;
     const uniqueTrainings = new Set(data?.rows.map(r => r.egitim_kodu) || []).size;
+
+    // Options for select fields
+    const documentTypeOptions = [
+        { value: 'EGITIM_KATILIM_CIZELGESI', label: 'Eğitim Katılım Çizelgesi' },
+        { value: 'SERTIFIKA', label: 'Sertifika' }
+    ];
+
+    const icDisOptions = [
+        { value: 'IC', label: 'İç' },
+        { value: 'DIS', label: 'Dış' }
+    ];
 
     return (
         <div className="space-y-4">
@@ -433,8 +647,8 @@ export default function MonthlyReportPage() {
             ) : (
                 <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
                     <div className="p-3 bg-gray-50 border-b flex justify-between items-center">
-                        <span className="text-sm font-medium text-gray-600">Detaylı Tablo (21 Sütun)</span>
-                        <span className="text-xs text-gray-500">Yatay kaydırma için sağa sürükleyin →</span>
+                        <span className="text-sm font-medium text-gray-600">Detaylı Tablo (Inline Düzenleme Aktif)</span>
+                        <span className="text-xs text-gray-500">Hücrelere tıklayarak düzenleyin | Yatay kaydırma için sağa sürükleyin →</span>
                     </div>
                     <div className="overflow-x-auto" style={{ maxHeight: '60vh' }}>
                         <table className="min-w-max w-full divide-y divide-gray-200 text-xs">
@@ -474,66 +688,169 @@ export default function MonthlyReportPage() {
                                 {data?.rows.map((row) => (
                                     <tr key={row.id} className="hover:bg-gray-50 transition-colors">
                                         <td className="px-3 py-2 font-mono font-medium text-blue-700 bg-blue-50/30 border-r whitespace-nowrap">{row.sicil_no}</td>
-                                        <td className="px-3 py-2 font-medium whitespace-nowrap">{row.ad_soyad}</td>
+                                        <td className="px-3 py-2 whitespace-nowrap">
+                                            <EditableCell
+                                                value={row.ad_soyad}
+                                                rowId={row.id}
+                                                field="ad_soyad"
+                                                onSave={handleInlineEdit}
+                                            />
+                                        </td>
                                         <td className="px-3 py-2 text-gray-500 font-mono text-[10px]">{row.tc_kimlik_no}</td>
-                                        <td className="px-3 py-2 whitespace-nowrap">{row.gorevi}</td>
-                                        <td className="px-3 py-2 whitespace-nowrap">{row.proje_adi}</td>
-                                        <td className="px-3 py-2 border-r">{row.grup}</td>
-                                        <td className="px-3 py-2 font-bold text-green-700 whitespace-nowrap">{row.egitim_kodu}</td>
-                                        <td className="px-3 py-2 text-gray-600 border-r max-w-[150px] truncate" title={row.egitim_alt_basligi || ""}>
-                                            {row.egitim_alt_basligi || "-"}
+                                        <td className="px-3 py-2 whitespace-nowrap">
+                                            <EditableCell
+                                                value={row.gorevi}
+                                                rowId={row.id}
+                                                field="gorevi"
+                                                onSave={handleInlineEdit}
+                                            />
                                         </td>
-                                        <td className="px-3 py-2 whitespace-nowrap font-mono text-[11px]">{row.baslama_tarihi}</td>
-                                        <td className="px-3 py-2 whitespace-nowrap font-mono text-[11px]">{row.bitis_tarihi}</td>
-                                        <td className="px-3 py-2 text-right font-bold text-orange-700">{row.egitim_suresi_dk}</td>
-                                        <td className="px-3 py-2 font-mono text-[11px]">{row.baslama_saati}</td>
-                                        <td className="px-3 py-2 font-mono text-[11px] border-r">{row.bitis_saati}</td>
-                                        <td className="px-3 py-2 max-w-[120px] truncate" title={row.egitim_yeri}>{row.egitim_yeri}</td>
-                                        <td className="px-3 py-2 border-r whitespace-nowrap">{row.egitmen_adi || "-"}</td>
-                                        <td className="px-3 py-2 max-w-[120px] truncate text-[10px]" title={row.sonuc_belgesi_turu}>{row.sonuc_belgesi_turu}</td>
+                                        <td className="px-3 py-2 whitespace-nowrap">
+                                            <EditableCell
+                                                value={row.proje_adi}
+                                                rowId={row.id}
+                                                field="proje_adi"
+                                                onSave={handleInlineEdit}
+                                            />
+                                        </td>
+                                        <td className="px-3 py-2 border-r">
+                                            <EditableCell
+                                                value={row.grup}
+                                                rowId={row.id}
+                                                field="grup"
+                                                onSave={handleInlineEdit}
+                                            />
+                                        </td>
+                                        <td className="px-3 py-2 font-bold text-green-700 whitespace-nowrap">
+                                            <EditableCell
+                                                value={row.egitim_kodu}
+                                                rowId={row.id}
+                                                field="egitim_kodu"
+                                                onSave={handleInlineEdit}
+                                            />
+                                        </td>
+                                        <td className="px-3 py-2 text-gray-600 border-r max-w-[150px]">
+                                            <EditableTextArea
+                                                value={row.egitim_alt_basligi}
+                                                rowId={row.id}
+                                                field="egitim_alt_basligi"
+                                                onSave={handleInlineEdit}
+                                                className="max-w-[140px]"
+                                            />
+                                        </td>
+                                        <td className="px-3 py-2 whitespace-nowrap font-mono text-[11px]">
+                                            <EditableCell
+                                                value={row.baslama_tarihi}
+                                                rowId={row.id}
+                                                field="baslama_tarihi"
+                                                type="date"
+                                                onSave={handleInlineEdit}
+                                            />
+                                        </td>
+                                        <td className="px-3 py-2 whitespace-nowrap font-mono text-[11px]">
+                                            <EditableCell
+                                                value={row.bitis_tarihi}
+                                                rowId={row.id}
+                                                field="bitis_tarihi"
+                                                type="date"
+                                                onSave={handleInlineEdit}
+                                            />
+                                        </td>
+                                        <td className="px-3 py-2 text-right font-bold text-orange-700">
+                                            <EditableCell
+                                                value={row.egitim_suresi_dk.toString()}
+                                                rowId={row.id}
+                                                field="egitim_suresi_dk"
+                                                type="number"
+                                                onSave={handleInlineEdit}
+                                                className="text-right"
+                                            />
+                                        </td>
+                                        <td className="px-3 py-2 font-mono text-[11px]">
+                                            <EditableCell
+                                                value={row.baslama_saati}
+                                                rowId={row.id}
+                                                field="baslama_saati"
+                                                type="time"
+                                                onSave={handleInlineEdit}
+                                            />
+                                        </td>
+                                        <td className="px-3 py-2 font-mono text-[11px] border-r">
+                                            <EditableCell
+                                                value={row.bitis_saati}
+                                                rowId={row.id}
+                                                field="bitis_saati"
+                                                type="time"
+                                                onSave={handleInlineEdit}
+                                            />
+                                        </td>
+                                        <td className="px-3 py-2 max-w-[120px]">
+                                            <EditableCell
+                                                value={row.egitim_yeri}
+                                                rowId={row.id}
+                                                field="egitim_yeri"
+                                                onSave={handleInlineEdit}
+                                                className="truncate"
+                                            />
+                                        </td>
+                                        <td className="px-3 py-2 border-r whitespace-nowrap">
+                                            <EditableCell
+                                                value={row.egitmen_adi || ''}
+                                                rowId={row.id}
+                                                field="egitmen_adi"
+                                                onSave={handleInlineEdit}
+                                            />
+                                        </td>
+                                        <td className="px-3 py-2 max-w-[120px] text-[10px]">
+                                            <EditableCell
+                                                value={row.sonuc_belgesi_turu}
+                                                rowId={row.id}
+                                                field="sonuc_belgesi_turu"
+                                                type="select"
+                                                options={documentTypeOptions}
+                                                onSave={handleInlineEdit}
+                                            />
+                                        </td>
                                         <td className="px-3 py-2">
-                                            <span className={`px-2 py-0.5 rounded text-[10px] ${row.ic_dis_egitim === 'IC' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
-                                                }`}>
-                                                {row.ic_dis_egitim === 'IC' ? 'İç' : 'Dış'}
-                                            </span>
+                                            <EditableCell
+                                                value={row.ic_dis_egitim}
+                                                rowId={row.id}
+                                                field="ic_dis_egitim"
+                                                type="select"
+                                                options={icDisOptions}
+                                                onSave={handleInlineEdit}
+                                            />
                                         </td>
-                                        <td className="px-3 py-2 border-r max-w-[150px] truncate text-gray-500 text-[10px]" title={row.egitim_detayli_aciklama || ""}>
-                                            {row.egitim_detayli_aciklama || "-"}
+                                        <td className="px-3 py-2 border-r max-w-[150px]">
+                                            <EditableTextArea
+                                                value={row.egitim_detayli_aciklama}
+                                                rowId={row.id}
+                                                field="egitim_detayli_aciklama"
+                                                onSave={handleInlineEdit}
+                                                className="text-gray-500 text-[10px] max-w-[140px]"
+                                            />
                                         </td>
                                         <td className="px-3 py-2 text-gray-500 text-[10px] whitespace-nowrap">{row.veri_giren_sicil} - {row.veri_giren_ad_soyad}</td>
                                         <td className="px-3 py-2 text-gray-400 text-[10px] whitespace-nowrap">
                                             {row.veri_giris_tarihi ? new Date(row.veri_giris_tarihi).toLocaleString("tr-TR") : "-"}
                                         </td>
                                         <td className="px-3 py-2">
-                                            <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${row.personel_durumu === 'CALISAN' ? 'bg-green-100 text-green-800' :
-                                                row.personel_durumu === 'AYRILDI' ? 'bg-red-100 text-red-800' :
-                                                    row.personel_durumu === 'PASIF' ? 'bg-gray-200 text-gray-600' :
-                                                        'bg-yellow-100 text-yellow-800'
-                                                }`}>
-                                                {row.personel_durumu}
-                                            </span>
+                                            <StatusToggle
+                                                value={row.personel_durumu}
+                                                rowId={row.id}
+                                                onSave={handleInlineEdit}
+                                            />
                                         </td>
                                         <td className="px-3 py-2 text-center">
-                                            <div className="flex items-center justify-center gap-1">
-                                                <button
-                                                    onClick={() => openEditModal(row)}
-                                                    className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
-                                                    title="Düzenle"
-                                                >
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                                    </svg>
-                                                </button>
-                                                <button
-                                                    onClick={() => setDeleteId(row.id)}
-                                                    className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
-                                                    title="Sil"
-                                                >
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                    </svg>
-                                                </button>
-                                            </div>
+                                            <button
+                                                onClick={() => setDeleteId(row.id)}
+                                                className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                                                title="Sil"
+                                            >
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                </svg>
+                                            </button>
                                         </td>
                                     </tr>
                                 ))}
@@ -581,136 +898,6 @@ export default function MonthlyReportPage() {
                                     </>
                                 ) : (
                                     "Evet, Sil"
-                                )}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Edit Modal */}
-            {editRow && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-xl shadow-xl p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-blue-100 rounded-full">
-                                    <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                    </svg>
-                                </div>
-                                <h3 className="text-lg font-bold text-gray-900">Kaydı Düzenle</h3>
-                            </div>
-                            <button
-                                onClick={() => setEditRow(null)}
-                                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg"
-                            >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                            </button>
-                        </div>
-
-                        {/* Sadece okunur bilgiler */}
-                        <div className="bg-gray-50 rounded-lg p-3 mb-4 text-sm">
-                            <div className="grid grid-cols-2 gap-2">
-                                <div><span className="text-gray-500">Sicil:</span> <span className="font-medium">{editRow.sicil_no}</span></div>
-                                <div><span className="text-gray-500">Ad Soyad:</span> <span className="font-medium">{editRow.ad_soyad}</span></div>
-                                <div><span className="text-gray-500">Eğitim:</span> <span className="font-medium text-green-700">{editRow.egitim_kodu}</span></div>
-                                <div><span className="text-gray-500">Süre:</span> <span className="font-medium">{editRow.egitim_suresi_dk} dk</span></div>
-                            </div>
-                        </div>
-
-                        {/* Düzenlenebilir alanlar */}
-                        <div className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Başlama Tarihi</label>
-                                    <input
-                                        type="date"
-                                        value={editForm.baslama_tarihi}
-                                        onChange={(e) => setEditForm({ ...editForm, baslama_tarihi: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Bitiş Tarihi</label>
-                                    <input
-                                        type="date"
-                                        value={editForm.bitis_tarihi}
-                                        onChange={(e) => setEditForm({ ...editForm, bitis_tarihi: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Başlama Saati</label>
-                                    <input
-                                        type="time"
-                                        value={editForm.baslama_saati}
-                                        onChange={(e) => setEditForm({ ...editForm, baslama_saati: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Bitiş Saati</label>
-                                    <input
-                                        type="time"
-                                        value={editForm.bitis_saati}
-                                        onChange={(e) => setEditForm({ ...editForm, bitis_saati: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Eğitim Yeri</label>
-                                <input
-                                    type="text"
-                                    value={editForm.egitim_yeri}
-                                    onChange={(e) => setEditForm({ ...editForm, egitim_yeri: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
-                                    placeholder="Eğitim yeri..."
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Detaylı Açıklama</label>
-                                <textarea
-                                    value={editForm.egitim_detayli_aciklama}
-                                    onChange={(e) => setEditForm({ ...editForm, egitim_detayli_aciklama: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
-                                    rows={3}
-                                    placeholder="Eğitim hakkında ek bilgiler..."
-                                />
-                            </div>
-                        </div>
-
-                        <div className="flex justify-end gap-3 mt-6">
-                            <button
-                                onClick={() => setEditRow(null)}
-                                className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors"
-                                disabled={editLoading}
-                            >
-                                İptal
-                            </button>
-                            <button
-                                onClick={handleEdit}
-                                disabled={editLoading}
-                                className="px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg font-medium transition-colors flex items-center gap-2"
-                            >
-                                {editLoading ? (
-                                    <>
-                                        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
-                                        Kaydediliyor...
-                                    </>
-                                ) : (
-                                    "Kaydet"
                                 )}
                             </button>
                         </div>

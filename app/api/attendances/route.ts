@@ -228,7 +228,7 @@ export async function POST(request: NextRequest) {
     }
 }
 
-// PUT - Katılım kaydı güncelle
+// PUT - Katılım kaydı güncelle (Inline editing için genişletilmiş)
 export async function PUT(request: NextRequest) {
     try {
         const session = await getSession();
@@ -248,11 +248,18 @@ export async function PUT(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { id, baslama_tarihi, bitis_tarihi, baslama_saati, bitis_saati, egitim_yeri, egitim_detayli_aciklama } = body;
+        const { id, field, value } = body;
 
         if (!id) {
             return NextResponse.json(
                 { success: false, message: "ID gerekli" },
+                { status: 400 }
+            );
+        }
+
+        if (!field) {
+            return NextResponse.json(
+                { success: false, message: "Field gerekli" },
                 { status: 400 }
             );
         }
@@ -269,23 +276,90 @@ export async function PUT(request: NextRequest) {
             );
         }
 
-        // Year ve month'u başlangıç tarihinden hesapla
-        const dateObj = new Date(baslama_tarihi);
-        const newYear = dateObj.getFullYear();
-        const newMonth = dateObj.getMonth() + 1;
+        // Güncellenecek alanları map et
+        const updateData: any = {};
+        let needsYearMonthUpdate = false;
+
+        switch (field) {
+            case 'baslama_tarihi':
+                updateData.baslamaTarihi = value;
+                needsYearMonthUpdate = true;
+                break;
+            case 'bitis_tarihi':
+                updateData.bitisTarihi = value;
+                break;
+            case 'baslama_saati':
+                updateData.baslamaSaati = value;
+                break;
+            case 'bitis_saati':
+                updateData.bitisSaati = value;
+                break;
+            case 'egitim_yeri':
+                updateData.egitimYeri = value;
+                break;
+            case 'egitim_detayli_aciklama':
+                updateData.egitimDetayliAciklama = value || null;
+                break;
+            case 'egitim_kodu':
+                updateData.egitimKodu = value;
+                break;
+            case 'egitim_alt_basligi':
+                updateData.egitimAltBasligi = value || null;
+                break;
+            case 'egitmen_adi':
+                // Eğitmen adı trainer tablosundan geliyor, snapshot olarak kaydediliyor
+                updateData.egitmenAdi = value;
+                break;
+            case 'sonuc_belgesi_turu':
+                if (value === 'EGITIM_KATILIM_CIZELGESI' || value === 'SERTIFIKA') {
+                    updateData.sonucBelgesiTuru = value;
+                }
+                break;
+            case 'ic_dis_egitim':
+                if (value === 'IC' || value === 'DIS') {
+                    updateData.icDisEgitim = value;
+                }
+                break;
+            case 'egitim_suresi_dk':
+                const duration = parseInt(value);
+                if (!isNaN(duration) && duration > 0) {
+                    updateData.egitimSuresiDk = duration;
+                }
+                break;
+            case 'personel_durumu':
+                if (['CALISAN', 'AYRILDI', 'IZINLI', 'PASIF'].includes(value)) {
+                    updateData.personelDurumu = value;
+                }
+                break;
+            case 'ad_soyad':
+                updateData.adSoyad = value;
+                break;
+            case 'gorevi':
+                updateData.gorevi = value;
+                break;
+            case 'proje_adi':
+                updateData.projeAdi = value;
+                break;
+            case 'grup':
+                updateData.grup = value;
+                break;
+            default:
+                return NextResponse.json(
+                    { success: false, message: "Geçersiz alan" },
+                    { status: 400 }
+                );
+        }
+
+        // Year ve month'u başlangıç tarihinden hesapla (eğer başlama tarihi güncelleniyorsa)
+        if (needsYearMonthUpdate && updateData.baslamaTarihi) {
+            const dateObj = new Date(updateData.baslamaTarihi);
+            updateData.year = dateObj.getFullYear();
+            updateData.month = dateObj.getMonth() + 1;
+        }
 
         // Güncelle
         const [updated] = await db.update(attendances)
-            .set({
-                baslamaTarihi: baslama_tarihi,
-                bitisTarihi: bitis_tarihi,
-                baslamaSaati: baslama_saati,
-                bitisSaati: bitis_saati,
-                egitimYeri: egitim_yeri,
-                egitimDetayliAciklama: egitim_detayli_aciklama || null,
-                year: newYear,
-                month: newMonth,
-            })
+            .set(updateData)
             .where(eq(attendances.id, id))
             .returning();
 
