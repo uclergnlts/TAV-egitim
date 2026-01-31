@@ -389,6 +389,75 @@ export async function PUT(request: NextRequest) {
     }
 }
 
+// Bulk Delete - Toplu silme
+export async function PATCH(request: NextRequest) {
+    try {
+        const session = await getSession();
+        if (!session) {
+            return NextResponse.json(
+                { success: false, message: "Oturum açmanız gerekiyor" },
+                { status: 401 }
+            );
+        }
+
+        // Sadece ADMIN silebilir
+        if (session.role !== "ADMIN") {
+            return NextResponse.json(
+                { success: false, message: "Bu işlem için yetkiniz yok" },
+                { status: 403 }
+            );
+        }
+
+        const body = await request.json();
+        const { ids } = body;
+
+        if (!ids || !Array.isArray(ids) || ids.length === 0) {
+            return NextResponse.json(
+                { success: false, message: "Silmek için ID listesi gerekli" },
+                { status: 400 }
+            );
+        }
+
+        // Kayıtları bul (audit için)
+        const existingRecords = await db.query.attendances.findMany({
+            where: inArray(attendances.id, ids),
+        });
+
+        if (existingRecords.length === 0) {
+            return NextResponse.json(
+                { success: false, message: "Kayıtlar bulunamadı" },
+                { status: 404 }
+            );
+        }
+
+        // Toplu sil
+        await db.delete(attendances).where(inArray(attendances.id, ids));
+
+        // Audit Log
+        await logAction({
+            userId: session.userId,
+            userRole: "ADMIN",
+            actionType: "DELETE",
+            entityType: "attendance",
+            entityId: `BULK-${Date.now()}`,
+            oldValue: { count: existingRecords.length, records: existingRecords.map(r => ({ id: r.id, sicil: r.sicilNo })) },
+        });
+
+        return NextResponse.json({
+            success: true,
+            message: `${existingRecords.length} kayıt silindi`,
+            deletedCount: existingRecords.length,
+        });
+
+    } catch (error) {
+        console.error("Attendance bulk delete error:", error);
+        return NextResponse.json(
+            { success: false, message: "Toplu silme işlemi başarısız" },
+            { status: 500 }
+        );
+    }
+}
+
 export async function DELETE(request: NextRequest) {
     try {
         const session = await getSession();

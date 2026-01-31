@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { MONTHS_TR } from "@/lib/utils";
 import { useToast } from "@/components/ToastProvider";
 import * as XLSX from "xlsx";
@@ -33,6 +33,13 @@ interface AttendanceRow {
 
 // Tarih modları
 type DateMode = 'month' | 'range';
+
+// Sıralama tipi
+type SortDirection = 'asc' | 'desc';
+interface SortConfig {
+    key: keyof AttendanceRow | null;
+    direction: SortDirection;
+}
 
 // Inline Editable Cell Component
 interface EditableCellProps {
@@ -254,6 +261,37 @@ function EditableTextArea({ value, rowId, field, onSave, className = '', maxLeng
     );
 }
 
+// Sortable Header Component
+interface SortableHeaderProps {
+    label: string;
+    sortKey: keyof AttendanceRow;
+    currentSort: SortConfig;
+    onSort: (key: keyof AttendanceRow) => void;
+    className?: string;
+}
+
+function SortableHeader({ label, sortKey, currentSort, onSort, className = '' }: SortableHeaderProps) {
+    const isActive = currentSort.key === sortKey;
+
+    return (
+        <th
+            onClick={() => onSort(sortKey)}
+            className={`px-3 py-3 text-left font-semibold text-gray-700 cursor-pointer hover:bg-gray-200 transition-colors select-none ${className}`}
+        >
+            <div className="flex items-center gap-1">
+                <span>{label}</span>
+                <span className="text-gray-400">
+                    {isActive ? (
+                        currentSort.direction === 'asc' ? '↑' : '↓'
+                    ) : (
+                        '↕'
+                    )}
+                </span>
+            </div>
+        </th>
+    );
+}
+
 export default function MonthlyReportPage() {
     const currentYear = new Date().getFullYear();
     const currentMonth = new Date().getMonth() + 1;
@@ -280,6 +318,21 @@ export default function MonthlyReportPage() {
     const [deleteId, setDeleteId] = useState<string | null>(null);
     const [deleteLoading, setDeleteLoading] = useState(false);
     
+    // Arama ve filtreleme
+    const [searchTerm, setSearchTerm] = useState('');
+    
+    // Sıralama
+    const [sortConfig, setSortConfig] = useState<SortConfig>({ key: null, direction: 'asc' });
+    
+    // Toplu seçim
+    const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+    const [bulkDeleteLoading, setBulkDeleteLoading] = useState(false);
+    const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+    
+    // Sayfalama
+    const [currentPage, setCurrentPage] = useState(1);
+    const [rowsPerPage, setRowsPerPage] = useState(50);
+    
     const toast = useToast();
 
     // İlk yüklemede veri çek
@@ -293,6 +346,11 @@ export default function MonthlyReportPage() {
             loadData();
         }
     }, [year, month]);
+
+    // Arama veya sıralama değiştiğinde sayfayı sıfırla
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, sortConfig]);
 
     const loadData = async () => {
         setLoading(true);
@@ -308,6 +366,7 @@ export default function MonthlyReportPage() {
             const result = await res.json();
             if (result.success) {
                 setData(result.data);
+                setSelectedRows(new Set()); // Seçimleri temizle
             }
         } catch (err) {
             console.error("Failed to load data:", err);
@@ -378,6 +437,34 @@ export default function MonthlyReportPage() {
         }
     };
 
+    // Toplu silme
+    const handleBulkDelete = async () => {
+        if (selectedRows.size === 0) return;
+        
+        setBulkDeleteLoading(true);
+        try {
+            const res = await fetch('/api/attendances', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: Array.from(selectedRows) })
+            });
+            const result = await res.json();
+            if (result.success) {
+                toast.success(`${result.deletedCount} kayıt silindi`);
+                loadData();
+                setShowBulkDeleteConfirm(false);
+                setSelectedRows(new Set());
+            } else {
+                toast.error(result.message || "Toplu silme başarısız");
+            }
+        } catch (err) {
+            console.error("Bulk delete failed:", err);
+            toast.error("Toplu silme işlemi başarısız");
+        } finally {
+            setBulkDeleteLoading(false);
+        }
+    };
+
     // Inline edit handler - auto save
     const handleInlineEdit = useCallback(async (rowId: string, field: string, value: string) => {
         try {
@@ -416,11 +503,94 @@ export default function MonthlyReportPage() {
         }
     }, [toast]);
 
-    const exportToExcel = () => {
-        if (!data?.rows.length) return;
+    // Sıralama işleyici
+    const handleSort = (key: keyof AttendanceRow) => {
+        setSortConfig(current => ({
+            key,
+            direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc'
+        }));
+    };
 
-        // API'den zaten sıralı geliyor (CALISAN → IZINLI → PASIF → AYRILDI)
-        const exportData = data.rows.map(row => ({
+    // Satır seçim işleyicileri
+    const toggleRowSelection = (id: string) => {
+        setSelectedRows(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(id)) {
+                newSet.delete(id);
+            } else {
+                newSet.add(id);
+            }
+            return newSet;
+        });
+    };
+
+    const toggleAllSelection = () => {
+        if (selectedRows.size === filteredAndSortedRows.length) {
+            setSelectedRows(new Set());
+        } else {
+            setSelectedRows(new Set(filteredAndSortedRows.map(row => row.id)));
+        }
+    };
+
+    // Filtreleme ve sıralama
+    const filteredAndSortedRows = useMemo(() => {
+        if (!data?.rows) return [];
+        
+        let rows = [...data.rows];
+        
+        // Arama filtresi
+        if (searchTerm) {
+            const searchLower = searchTerm.toLowerCase();
+            rows = rows.filter(row =>
+                row.sicil_no.toLowerCase().includes(searchLower) ||
+                row.ad_soyad.toLowerCase().includes(searchLower) ||
+                row.egitim_kodu.toLowerCase().includes(searchLower) ||
+                row.proje_adi.toLowerCase().includes(searchLower) ||
+                row.grup.toLowerCase().includes(searchLower) ||
+                (row.egitim_alt_basligi?.toLowerCase().includes(searchLower) ?? false)
+            );
+        }
+        
+        // Sıralama
+        if (sortConfig.key) {
+            rows.sort((a, b) => {
+                const aValue = a[sortConfig.key!];
+                const bValue = b[sortConfig.key!];
+                
+                if (aValue === null || aValue === undefined) return 1;
+                if (bValue === null || bValue === undefined) return -1;
+                
+                if (typeof aValue === 'string' && typeof bValue === 'string') {
+                    return sortConfig.direction === 'asc' 
+                        ? aValue.localeCompare(bValue, 'tr')
+                        : bValue.localeCompare(aValue, 'tr');
+                }
+                
+                if (typeof aValue === 'number' && typeof bValue === 'number') {
+                    return sortConfig.direction === 'asc' 
+                        ? aValue - bValue 
+                        : bValue - aValue;
+                }
+                
+                return 0;
+            });
+        }
+        
+        return rows;
+    }, [data?.rows, searchTerm, sortConfig]);
+
+    // Sayfalama
+    const paginatedRows = useMemo(() => {
+        const start = (currentPage - 1) * rowsPerPage;
+        return filteredAndSortedRows.slice(start, start + rowsPerPage);
+    }, [filteredAndSortedRows, currentPage, rowsPerPage]);
+
+    const totalPages = Math.ceil(filteredAndSortedRows.length / rowsPerPage);
+
+    const exportToExcel = () => {
+        if (!filteredAndSortedRows.length) return;
+
+        const exportData = filteredAndSortedRows.map(row => ({
             "Sicil No": row.sicil_no,
             "Ad Soyad": row.ad_soyad,
             "TC Kimlik": row.tc_kimlik_no,
@@ -450,7 +620,6 @@ export default function MonthlyReportPage() {
 
         const wb = XLSX.utils.book_new();
         
-        // Dosya adı tarih moduna göre
         let sheetName: string;
         let fileName: string;
         if (dateMode === 'range') {
@@ -461,7 +630,7 @@ export default function MonthlyReportPage() {
             fileName = `Aylik_Rapor_${MONTHS_TR[month - 1]}_${year}.xlsx`;
         }
         
-        XLSX.utils.book_append_sheet(wb, ws, sheetName.substring(0, 31)); // Sheet name max 31 char
+        XLSX.utils.book_append_sheet(wb, ws, sheetName.substring(0, 31));
         XLSX.writeFile(wb, fileName);
     };
 
@@ -490,16 +659,30 @@ export default function MonthlyReportPage() {
                     <p className="text-sm text-gray-500">Seçili döneme ait tüm katılım kayıtları</p>
                 </div>
 
-                <button
-                    onClick={exportToExcel}
-                    disabled={!data?.rows.length}
-                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 font-medium flex items-center gap-2 disabled:opacity-50 text-sm"
-                >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    <span>Excel İndir</span>
-                </button>
+                <div className="flex flex-wrap gap-2">
+                    {/* Yenile Butonu */}
+                    <button
+                        onClick={loadData}
+                        disabled={loading}
+                        className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 font-medium flex items-center gap-2 disabled:opacity-50 text-sm"
+                    >
+                        <svg className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        <span>Yenile</span>
+                    </button>
+
+                    <button
+                        onClick={exportToExcel}
+                        disabled={!filteredAndSortedRows.length}
+                        className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 font-medium flex items-center gap-2 disabled:opacity-50 text-sm"
+                    >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <span>Excel İndir</span>
+                    </button>
+                </div>
             </div>
 
             {/* Tarih Seçimi */}
@@ -529,12 +712,12 @@ export default function MonthlyReportPage() {
                 </div>
 
                 {dateMode === 'month' ? (
-                    // Aylık Mod
                     <div className="flex flex-wrap items-center gap-2">
                         <select
                             value={year}
                             onChange={(e) => setYear(parseInt(e.target.value))}
                             className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                            title="Yıl"
                         >
                             {years.map((y) => (
                                 <option key={y} value={y}>{y}</option>
@@ -545,6 +728,7 @@ export default function MonthlyReportPage() {
                             value={month}
                             onChange={(e) => setMonth(parseInt(e.target.value))}
                             className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                            title="Ay"
                         >
                             {MONTHS_TR.map((m, i) => (
                                 <option key={i} value={i + 1}>{m}</option>
@@ -552,7 +736,6 @@ export default function MonthlyReportPage() {
                         </select>
                     </div>
                 ) : (
-                    // Tarih Aralığı Modu
                     <div className="space-y-3">
                         <div className="flex flex-wrap items-center gap-2">
                             <div className="flex items-center gap-2">
@@ -562,6 +745,7 @@ export default function MonthlyReportPage() {
                                     value={startDate}
                                     onChange={(e) => setStartDate(e.target.value)}
                                     className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                                    title="Başlangıç Tarihi"
                                 />
                             </div>
                             <div className="flex items-center gap-2">
@@ -571,6 +755,7 @@ export default function MonthlyReportPage() {
                                     value={endDate}
                                     onChange={(e) => setEndDate(e.target.value)}
                                     className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                                    title="Bitiş Tarihi"
                                 />
                             </div>
                             <button
@@ -581,7 +766,6 @@ export default function MonthlyReportPage() {
                             </button>
                         </div>
                         
-                        {/* Hızlı Seçim Butonları */}
                         <div className="flex flex-wrap gap-2">
                             <span className="text-xs text-gray-500 self-center">Hızlı seçim:</span>
                             <button
@@ -635,6 +819,66 @@ export default function MonthlyReportPage() {
                 </div>
             )}
 
+            {/* Search and Filters */}
+            {data && (
+                <div className="bg-white rounded-xl shadow-sm border p-4">
+                    <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+                        <div className="flex-1 max-w-md">
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    placeholder="Sicil No, Ad Soyad, Eğitim Kodu, Proje, Grup ara..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                                />
+                                <svg className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                            </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-4 text-sm text-gray-600">
+                            <span>Filtrelenen: <strong>{filteredAndSortedRows.length}</strong> / {data.rows.length}</span>
+                            
+                            {/* Sayfa başı kayıt seçimi */}
+                            <select
+                                value={rowsPerPage}
+                                onChange={(e) => {
+                                    setRowsPerPage(parseInt(e.target.value));
+                                    setCurrentPage(1);
+                                }}
+                                className="px-2 py-1 border border-gray-300 rounded text-sm"
+                                title="Sayfa başı kayıt sayısı"
+                            >
+                                <option value={25}>25</option>
+                                <option value={50}>50</option>
+                                <option value={100}>100</option>
+                                <option value={200}>200</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Toplu İşlemler */}
+                    {selectedRows.size > 0 && (
+                        <div className="mt-4 p-3 bg-blue-50 rounded-lg flex items-center justify-between">
+                            <span className="text-sm text-blue-800">
+                                <strong>{selectedRows.size}</strong> kayıt seçildi
+                            </span>
+                            <button
+                                onClick={() => setShowBulkDeleteConfirm(true)}
+                                className="px-3 py-1.5 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 flex items-center gap-1"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                                Seçilenleri Sil
+                            </button>
+                        </div>
+                    )}
+                </div>
+            )}
+
             {/* Table */}
             {loading ? (
                 <div className="flex items-center justify-center h-64">
@@ -644,30 +888,44 @@ export default function MonthlyReportPage() {
                 <div className="bg-white rounded-xl shadow-sm border p-8 text-center">
                     <p className="text-gray-500">Bu dönem için kayıt bulunmuyor.</p>
                 </div>
+            ) : filteredAndSortedRows.length === 0 ? (
+                <div className="bg-white rounded-xl shadow-sm border p-8 text-center">
+                    <p className="text-gray-500">Arama kriterlerine uygun kayıt bulunamadı.</p>
+                </div>
             ) : (
                 <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
                     <div className="p-3 bg-gray-50 border-b flex justify-between items-center">
                         <span className="text-sm font-medium text-gray-600">Detaylı Tablo (Inline Düzenleme Aktif)</span>
-                        <span className="text-xs text-gray-500">Hücrelere tıklayarak düzenleyin | Yatay kaydırma için sağa sürükleyin →</span>
+                        <span className="text-xs text-gray-500">Hücrelere tıklayarak düzenleyin | Sütun başlıklarına tıklayarak sıralayın</span>
                     </div>
                     <div className="overflow-x-auto" style={{ maxHeight: '60vh' }}>
                         <table className="min-w-max w-full divide-y divide-gray-200 text-xs">
                             <thead className="bg-gray-100 sticky top-0 z-10">
                                 <tr>
+                                    {/* Checkbox */}
+                                    <th className="px-2 py-3 text-center bg-gray-100 border-r">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedRows.size === filteredAndSortedRows.length && filteredAndSortedRows.length > 0}
+                                            onChange={toggleAllSelection}
+                                            className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                            title="Tümünü seç"
+                                        />
+                                    </th>
                                     {/* Personel Bilgileri */}
-                                    <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-blue-50 border-r">Sicil No</th>
-                                    <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-blue-50">Ad Soyad</th>
+                                    <SortableHeader label="Sicil No" sortKey="sicil_no" currentSort={sortConfig} onSort={handleSort} className="bg-blue-50 border-r" />
+                                    <SortableHeader label="Ad Soyad" sortKey="ad_soyad" currentSort={sortConfig} onSort={handleSort} className="bg-blue-50" />
                                     <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-blue-50">TC Kimlik</th>
-                                    <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-blue-50">Görevi</th>
-                                    <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-blue-50">Proje</th>
-                                    <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-blue-50 border-r">Grup</th>
+                                    <SortableHeader label="Görevi" sortKey="gorevi" currentSort={sortConfig} onSort={handleSort} className="bg-blue-50" />
+                                    <SortableHeader label="Proje" sortKey="proje_adi" currentSort={sortConfig} onSort={handleSort} className="bg-blue-50" />
+                                    <SortableHeader label="Grup" sortKey="grup" currentSort={sortConfig} onSort={handleSort} className="bg-blue-50 border-r" />
                                     {/* Eğitim Bilgileri */}
-                                    <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-green-50">Eğitim Kodu</th>
+                                    <SortableHeader label="Eğitim Kodu" sortKey="egitim_kodu" currentSort={sortConfig} onSort={handleSort} className="bg-green-50" />
                                     <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-green-50 border-r">Alt Başlık</th>
                                     {/* Zaman Bilgileri */}
-                                    <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-yellow-50">Baş. Tarihi</th>
-                                    <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-yellow-50">Bit. Tarihi</th>
-                                    <th className="px-3 py-3 text-right font-semibold text-gray-700 bg-yellow-50">Süre (dk)</th>
+                                    <SortableHeader label="Baş. Tarihi" sortKey="baslama_tarihi" currentSort={sortConfig} onSort={handleSort} className="bg-yellow-50" />
+                                    <SortableHeader label="Bit. Tarihi" sortKey="bitis_tarihi" currentSort={sortConfig} onSort={handleSort} className="bg-yellow-50" />
+                                    <SortableHeader label="Süre (dk)" sortKey="egitim_suresi_dk" currentSort={sortConfig} onSort={handleSort} className="bg-yellow-50 text-right" />
                                     <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-yellow-50">Baş. Saati</th>
                                     <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-yellow-50 border-r">Bit. Saati</th>
                                     {/* Detay Bilgileri */}
@@ -680,13 +938,24 @@ export default function MonthlyReportPage() {
                                     {/* Audit */}
                                     <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-red-50">Veri Giren</th>
                                     <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-red-50">Giriş Tar.</th>
-                                    <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-gray-200">Durum</th>
+                                    <SortableHeader label="Durum" sortKey="personel_durumu" currentSort={sortConfig} onSort={handleSort} className="bg-gray-200" />
                                     <th className="px-3 py-3 text-center font-semibold text-gray-700 bg-gray-100">İşlem</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200 bg-white">
-                                {data?.rows.map((row) => (
-                                    <tr key={row.id} className="hover:bg-gray-50 transition-colors">
+                                {paginatedRows.map((row) => (
+                                    <tr 
+                                        key={row.id} 
+                                        className={`hover:bg-gray-50 transition-colors ${selectedRows.has(row.id) ? 'bg-blue-50' : ''}`}
+                                    >
+                                        <td className="px-2 py-2 text-center border-r">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedRows.has(row.id)}
+                                                onChange={() => toggleRowSelection(row.id)}
+                                                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                            />
+                                        </td>
                                         <td className="px-3 py-2 font-mono font-medium text-blue-700 bg-blue-50/30 border-r whitespace-nowrap">{row.sicil_no}</td>
                                         <td className="px-3 py-2 whitespace-nowrap">
                                             <EditableCell
@@ -857,6 +1126,70 @@ export default function MonthlyReportPage() {
                             </tbody>
                         </table>
                     </div>
+                    
+                    {/* Pagination */}
+                    {totalPages > 1 && (
+                        <div className="p-3 bg-gray-50 border-t flex items-center justify-between">
+                            <div className="text-sm text-gray-600">
+                                Sayfa {currentPage} / {totalPages} ({filteredAndSortedRows.length} kayıt)
+                            </div>
+                            <div className="flex gap-1">
+                                <button
+                                    onClick={() => setCurrentPage(1)}
+                                    disabled={currentPage === 1}
+                                    className="px-2 py-1 text-sm bg-white border rounded hover:bg-gray-50 disabled:opacity-50"
+                                >
+                                    «
+                                </button>
+                                <button
+                                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                    disabled={currentPage === 1}
+                                    className="px-2 py-1 text-sm bg-white border rounded hover:bg-gray-50 disabled:opacity-50"
+                                >
+                                    ‹
+                                </button>
+                                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                                    let pageNum;
+                                    if (totalPages <= 5) {
+                                        pageNum = i + 1;
+                                    } else if (currentPage <= 3) {
+                                        pageNum = i + 1;
+                                    } else if (currentPage >= totalPages - 2) {
+                                        pageNum = totalPages - 4 + i;
+                                    } else {
+                                        pageNum = currentPage - 2 + i;
+                                    }
+                                    return (
+                                        <button
+                                            key={pageNum}
+                                            onClick={() => setCurrentPage(pageNum)}
+                                            className={`px-3 py-1 text-sm rounded ${
+                                                currentPage === pageNum
+                                                    ? 'bg-blue-600 text-white'
+                                                    : 'bg-white border hover:bg-gray-50'
+                                            }`}
+                                        >
+                                            {pageNum}
+                                        </button>
+                                    );
+                                })}
+                                <button
+                                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                    disabled={currentPage === totalPages}
+                                    className="px-2 py-1 text-sm bg-white border rounded hover:bg-gray-50 disabled:opacity-50"
+                                >
+                                    ›
+                                </button>
+                                <button
+                                    onClick={() => setCurrentPage(totalPages)}
+                                    disabled={currentPage === totalPages}
+                                    className="px-2 py-1 text-sm bg-white border rounded hover:bg-gray-50 disabled:opacity-50"
+                                >
+                                    »
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -889,6 +1222,51 @@ export default function MonthlyReportPage() {
                                 className="px-4 py-2 text-white bg-red-600 hover:bg-red-700 rounded-lg font-medium transition-colors flex items-center gap-2"
                             >
                                 {deleteLoading ? (
+                                    <>
+                                        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        Siliniyor...
+                                    </>
+                                ) : (
+                                    "Evet, Sil"
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Bulk Delete Confirmation Modal */}
+            {showBulkDeleteConfirm && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-xl shadow-xl p-6 max-w-md w-full mx-4">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="p-2 bg-red-100 rounded-full">
+                                <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                            </div>
+                            <h3 className="text-lg font-bold text-gray-900">Toplu Silme</h3>
+                        </div>
+                        <p className="text-gray-600 mb-6">
+                            <strong>{selectedRows.size}</strong> kaydı silmek istediğinize emin misiniz? Bu işlem geri alınamaz.
+                        </p>
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={() => setShowBulkDeleteConfirm(false)}
+                                className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors"
+                                disabled={bulkDeleteLoading}
+                            >
+                                İptal
+                            </button>
+                            <button
+                                onClick={handleBulkDelete}
+                                disabled={bulkDeleteLoading}
+                                className="px-4 py-2 text-white bg-red-600 hover:bg-red-700 rounded-lg font-medium transition-colors flex items-center gap-2"
+                            >
+                                {bulkDeleteLoading ? (
                                     <>
                                         <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
                                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
