@@ -2,3 +2,8 @@ export { SearchableSelect } from './SearchableSelect';
 export { PersonnelSearch } from './PersonnelSearch';
 export { SicilValidator } from './SicilValidator';
 export { ExcelImport } from './ExcelImport';
+export { TrainingForm } from './TrainingForm';
+export { DateTimeForm } from './DateTimeForm';
+export { PersonnelForm } from './PersonnelForm';
+export { PendingList } from './PendingList';
+export { EditModal } from './EditModal';
