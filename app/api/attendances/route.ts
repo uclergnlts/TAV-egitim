@@ -239,27 +239,13 @@ export async function PUT(request: NextRequest) {
             );
         }
 
-        // Sadece ADMIN düzenleyebilir
-        if (session.role !== "ADMIN") {
-            return NextResponse.json(
-                { success: false, message: "Bu işlem için yetkiniz yok" },
-                { status: 403 }
-            );
-        }
-
+        // ADMIN veya kendi girdikleri kayıtları düzenleyebilir
         const body = await request.json();
-        const { id, field, value } = body;
+        const { id } = body;
 
         if (!id) {
             return NextResponse.json(
                 { success: false, message: "ID gerekli" },
-                { status: 400 }
-            );
-        }
-
-        if (!field) {
-            return NextResponse.json(
-                { success: false, message: "Field gerekli" },
                 { status: 400 }
             );
         }
@@ -273,6 +259,23 @@ export async function PUT(request: NextRequest) {
             return NextResponse.json(
                 { success: false, message: "Kayıt bulunamadı" },
                 { status: 404 }
+            );
+        }
+
+        // Yetki kontrolü: ADMIN veya kaydı giren şef düzenleyebilir
+        if (session.role !== "ADMIN" && existingRecord.veriGirenSicil !== session.sicilNo) {
+            return NextResponse.json(
+                { success: false, message: "Bu kaydı düzenleme yetkiniz yok" },
+                { status: 403 }
+            );
+        }
+
+        const { field, value } = body;
+
+        if (!field) {
+            return NextResponse.json(
+                { success: false, message: "Field gerekli" },
+                { status: 400 }
             );
         }
 
@@ -468,14 +471,6 @@ export async function DELETE(request: NextRequest) {
             );
         }
 
-        // Sadece ADMIN silebilir
-        if (session.role !== "ADMIN") {
-            return NextResponse.json(
-                { success: false, message: "Bu işlem için yetkiniz yok" },
-                { status: 403 }
-            );
-        }
-
         const searchParams = request.nextUrl.searchParams;
         const id = searchParams.get("id");
 
@@ -498,13 +493,21 @@ export async function DELETE(request: NextRequest) {
             );
         }
 
+        // Yetki kontrolü: ADMIN veya kaydı giren şef silebilir
+        if (session.role !== "ADMIN" && existingRecord.veriGirenSicil !== session.sicilNo) {
+            return NextResponse.json(
+                { success: false, message: "Bu kaydı silme yetkiniz yok" },
+                { status: 403 }
+            );
+        }
+
         // Sil
         await db.delete(attendances).where(eq(attendances.id, id));
 
         // Audit Log
         await logAction({
             userId: session.userId,
-            userRole: "ADMIN",
+            userRole: session.role,
             actionType: "DELETE",
             entityType: "attendance",
             entityId: id,

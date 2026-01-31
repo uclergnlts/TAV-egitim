@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import * as XLSX from "xlsx";
 import { exportToPDF } from "@/lib/pdfExport";
+import { SearchableSelect, PersonnelSearch, SicilValidator, ExcelImport } from "@/components/chef";
 
 // Icons
 const EditIcon = ({ className }: { className?: string }) => (
@@ -116,6 +117,47 @@ export default function ChefDashboard() {
     const [editTrainerId, setEditTrainerId] = useState("");
     const [editLocation, setEditLocation] = useState("");
     const [editSicils, setEditSicils] = useState("");
+
+    // Form Auto-save to localStorage
+    useEffect(() => {
+        const saved = localStorage.getItem('chefFormData');
+        if (saved) {
+            try {
+                const data = JSON.parse(saved);
+                if (data.selectedTrainingId) setSelectedTrainingId(data.selectedTrainingId);
+                if (data.selectedTrainerId) setSelectedTrainerId(data.selectedTrainerId);
+                if (data.locationType) setLocationType(data.locationType);
+                if (data.trainingLocation) setTrainingLocation(data.trainingLocation);
+                if (data.documentType) setDocumentType(data.documentType);
+                if (data.description) setDescription(data.description);
+                if (data.startDate) setStartDate(data.startDate);
+                if (data.endDate) setEndDate(data.endDate);
+                if (data.startTime) setStartTime(data.startTime);
+                if (data.endTime) setEndTime(data.endTime);
+                if (data.sicilNos) setSicilNos(data.sicilNos);
+            } catch (e) {
+                console.error('Form data load error:', e);
+            }
+        }
+    }, []);
+
+    // Auto-save form data
+    useEffect(() => {
+        const formData = {
+            selectedTrainingId,
+            selectedTrainerId,
+            locationType,
+            trainingLocation,
+            documentType,
+            description,
+            startDate,
+            endDate,
+            startTime,
+            endTime,
+            sicilNos
+        };
+        localStorage.setItem('chefFormData', JSON.stringify(formData));
+    }, [selectedTrainingId, selectedTrainerId, locationType, trainingLocation, documentType, description, startDate, endDate, startTime, endTime, sicilNos]);
 
     // Initial Load
     useEffect(() => {
@@ -534,48 +576,64 @@ export default function ChefDashboard() {
 
                         <div className="p-6 space-y-6">
                             <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">Eğitim Seçin <span className="text-red-500">*</span></label>
-                                <select
+                                <SearchableSelect
+                                    label="Eğitim Seçin"
+                                    required
+                                    options={trainings.map(t => ({
+                                        value: t.id,
+                                        label: `${t.code} - ${t.name}`,
+                                        group: t.category || 'Diğer'
+                                    }))}
                                     value={selectedTrainingId}
-                                    onChange={handleTrainingChange}
-                                    className="w-full h-11 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm px-3 bg-white"
-                                >
-                                    <option value="">Seçiniz...</option>
-                                    {trainings.map(t => (
-                                        <option key={t.id} value={t.id}>{t.code} - {t.name}</option>
-                                    ))}
-                                </select>
+                                    onChange={(value) => {
+                                        const tId = value;
+                                        setSelectedTrainingId(tId);
+                                        setSelectedTopicId("");
+
+                                        const training = trainings.find(t => t.id === tId);
+                                        if (training) {
+                                            setTrainingDuration(training.duration_min);
+                                            setDocumentType(training.default_document_type || "");
+                                            setTrainingLocation(training.default_location || "");
+                                            if (startTime) calculateEndTime(startTime, training.duration_min, setEndTime);
+                                        } else {
+                                            setTrainingDuration(0);
+                                        }
+                                    }}
+                                    placeholder="Eğitim ara veya seç..."
+                                />
                             </div>
 
                             {selectedTraining?.has_topics && (
                                 <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-100">
-                                    <label className="block text-sm font-semibold text-yellow-800 mb-2">Alt Başlık <span className="text-red-500">*</span></label>
-                                    <select
+                                    <label className="block text-sm font-semibold text-yellow-800 mb-2">
+                                        Alt Başlık <span className="text-red-500">*</span>
+                                    </label>
+                                    <SearchableSelect
+                                        options={selectedTraining.topics.map(topic => ({
+                                            value: topic.id,
+                                            label: topic.title
+                                        }))}
                                         value={selectedTopicId}
-                                        onChange={(e) => setSelectedTopicId(e.target.value)}
-                                        className="w-full h-11 border border-yellow-300 rounded-lg bg-white px-3 text-sm focus:ring-2 focus:ring-yellow-400 focus:border-yellow-400"
-                                    >
-                                        <option value="">Alt Başlık Seçiniz...</option>
-                                        {selectedTraining.topics.map(topic => (
-                                            <option key={topic.id} value={topic.id}>{topic.title}</option>
-                                        ))}
-                                    </select>
+                                        onChange={setSelectedTopicId}
+                                        placeholder="Alt başlık seçiniz..."
+                                    />
                                 </div>
                             )}
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Eğitmen <span className="text-red-500">*</span></label>
-                                    <select
+                                    <SearchableSelect
+                                        label="Eğitmen"
+                                        required
+                                        options={trainers.map(t => ({
+                                            value: t.id,
+                                            label: t.fullName
+                                        }))}
                                         value={selectedTrainerId}
-                                        onChange={(e) => setSelectedTrainerId(e.target.value)}
-                                        className="w-full h-11 border border-gray-300 rounded-lg px-3 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    >
-                                        <option value="">Seçiniz</option>
-                                        {trainers.map(t => (
-                                            <option key={t.id} value={t.id}>{t.fullName}</option>
-                                        ))}
-                                    </select>
+                                        onChange={setSelectedTrainerId}
+                                        placeholder="Eğitmen seçin..."
+                                    />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Tür</label>
@@ -583,36 +641,36 @@ export default function ChefDashboard() {
                                         value={locationType}
                                         onChange={(e) => setLocationType(e.target.value)}
                                         className="w-full h-11 border border-gray-300 rounded-lg px-3 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        title="Eğitim Türü"
                                     >
                                         <option value="IC">İç Eğitim</option>
                                         <option value="DIS">Dış Eğitim</option>
                                     </select>
                                 </div>
                                 <div className="md:col-span-2">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Eğitim Yeri <span className="text-red-500">*</span></label>
-                                    <select
+                                    <SearchableSelect
+                                        label="Eğitim Yeri"
+                                        required
+                                        options={locations.map(loc => ({
+                                            value: loc.name,
+                                            label: loc.name
+                                        }))}
                                         value={trainingLocation}
-                                        onChange={(e) => setTrainingLocation(e.target.value)}
-                                        className="w-full h-11 border border-gray-300 rounded-lg px-3 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    >
-                                        <option value="">Seçiniz</option>
-                                        {locations.map(loc => (
-                                            <option key={loc.id} value={loc.name}>{loc.name}</option>
-                                        ))}
-                                    </select>
+                                        onChange={setTrainingLocation}
+                                        placeholder="Eğitim yeri seçin..."
+                                    />
                                 </div>
                                 <div className="md:col-span-2">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Sonuç Belgesi</label>
-                                    <select
+                                    <SearchableSelect
+                                        label="Sonuç Belgesi"
+                                        options={documentTypes.map(doc => ({
+                                            value: doc.name,
+                                            label: doc.name
+                                        }))}
                                         value={documentType}
-                                        onChange={(e) => setDocumentType(e.target.value)}
-                                        className="w-full h-11 border border-gray-300 rounded-lg px-3 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    >
-                                        <option value="">Seçiniz</option>
-                                        {documentTypes.map(doc => (
-                                            <option key={doc.id} value={doc.name}>{doc.name}</option>
-                                        ))}
-                                    </select>
+                                        onChange={setDocumentType}
+                                        placeholder="Belge türü seçin..."
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -630,13 +688,13 @@ export default function ChefDashboard() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-3">
                                     <label className="block text-xs font-bold text-gray-500 uppercase">Başlangıç</label>
-                                    <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full h-11 border border-gray-300 rounded-lg text-sm px-3 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-                                    <input type="time" value={startTime} onChange={(e) => handleStartTimeChange(e.target.value)} className="w-full h-11 border border-gray-300 rounded-lg text-base font-semibold px-3 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                                    <input type="date" title="Başlangıç Tarihi" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full h-11 border border-gray-300 rounded-lg text-sm px-3 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                                    <input type="time" title="Başlangıç Saati" value={startTime} onChange={(e) => handleStartTimeChange(e.target.value)} className="w-full h-11 border border-gray-300 rounded-lg text-base font-semibold px-3 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
                                 </div>
                                 <div className="space-y-3">
                                     <label className="block text-xs font-bold text-gray-500 uppercase">Bitiş</label>
-                                    <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full h-11 border border-gray-300 rounded-lg text-sm px-3 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-                                    <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="w-full h-11 border border-gray-300 rounded-lg text-base font-semibold px-3 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                                    <input type="date" title="Bitiş Tarihi" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full h-11 border border-gray-300 rounded-lg text-sm px-3 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                                    <input type="time" title="Bitiş Saati" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="w-full h-11 border border-gray-300 rounded-lg text-base font-semibold px-3 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
                                 </div>
                             </div>
                             <div className="mt-4 flex gap-2 overflow-x-auto py-2">
@@ -647,19 +705,58 @@ export default function ChefDashboard() {
                         </div>
                     </div>
 
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-[300px]">
-                        <div className="bg-gray-50 px-6 py-4 border-b border-gray-100">
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-[360px]">
+                        <div className="bg-gray-50 px-6 py-4 border-b border-gray-100 flex justify-between items-center">
                             <h2 className="text-lg font-semibold text-gray-800">Katılımcı Sicilleri</h2>
                         </div>
-                        <div className="p-4 flex-1 flex flex-col">
+                        <div className="p-4 flex-1 flex flex-col space-y-3">
+                            {/* Personnel Search */}
+                            <PersonnelSearch
+                                onSelect={(person) => {
+                                    const currentSicils = sicilNos.split(/[\n,]+/).map(s => s.trim()).filter(s => s.length > 0);
+                                    if (!currentSicils.includes(person.sicilNo)) {
+                                        const newSicils = [...currentSicils, person.sicilNo];
+                                        setSicilNos(newSicils.join('\n'));
+                                    }
+                                }}
+                                selectedSicils={sicilNos.split(/[\n,]+/).map(s => s.trim()).filter(s => s.length > 0)}
+                                placeholder="Ad, soyad veya sicil no ile ara ve ekle..."
+                            />
+                            
+                            {/* Excel Import */}
+                            <ExcelImport
+                                onImport={(importedSicils) => {
+                                    const currentSicils = sicilNos.split(/[\n,]+/).map(s => s.trim()).filter(s => s.length > 0);
+                                    const newSicils = [...new Set([...currentSicils, ...importedSicils])];
+                                    setSicilNos(newSicils.join('\n'));
+                                }}
+                            />
+                            
                             <textarea
                                 value={sicilNos}
                                 onChange={(e) => setSicilNos(e.target.value)}
                                 placeholder="Her satıra bir sicil no gelecek şekilde yapıştırın..."
                                 className="w-full flex-1 border border-gray-300 rounded-lg p-3 resize-none font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                             />
-                            <div className="mt-2 text-right">
-                                <button onClick={() => setSicilNos("")} className="text-xs text-red-500 hover:text-red-700">Temizle</button>
+                            
+                            {/* Real-time Validation */}
+                            <SicilValidator
+                                sicilNos={sicilNos}
+                                onValidationChange={(results, isValid) => {
+                                    // Validation state can be used for form submission control
+                                }}
+                            />
+                            
+                            <div className="flex justify-between items-center">
+                                <span className="text-xs text-gray-500">
+                                    {sicilNos.split(/[\n,]+/).filter(s => s.trim().length > 0).length} sicil
+                                </span>
+                                <button
+                                    onClick={() => setSicilNos("")}
+                                    className="text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                                >
+                                    Temizle
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -733,6 +830,7 @@ export default function ChefDashboard() {
                                     <th className="w-10 px-4 py-4">
                                         <input
                                             type="checkbox"
+                                            title="Tümünü Seç"
                                             onChange={handleSelectAll}
                                             checked={pendingRecords.length > 0 && selectedRecordIds.length === pendingRecords.length}
                                             className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
@@ -762,6 +860,7 @@ export default function ChefDashboard() {
                                                     <td className="px-4 py-4 whitespace-nowrap" rowSpan={rowSpan}>
                                                         <input
                                                             type="checkbox"
+                                                            title="Kayıt Seç"
                                                             checked={selectedRecordIds.includes(record.id)}
                                                             onChange={() => toggleSelectRecord(record.id)}
                                                             className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
@@ -905,6 +1004,7 @@ export default function ChefDashboard() {
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Eğitim</label>
                                         <select
+                                            title="Eğitim Seç"
                                             value={editTrainingId}
                                             onChange={(e) => {
                                                 setEditTrainingId(e.target.value);
@@ -921,6 +1021,7 @@ export default function ChefDashboard() {
                                         <div>
                                             <label className="block text-sm font-medium mb-1">Alt Başlık</label>
                                             <select
+                                                title="Alt Başlık Seç"
                                                 value={editTopicId}
                                                 onChange={(e) => setEditTopicId(e.target.value)}
                                                 className="w-full border-gray-300 rounded-lg text-sm"
@@ -939,13 +1040,13 @@ export default function ChefDashboard() {
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Başlangıç</label>
-                                        <input type="date" value={editStartDate} onChange={(e) => setEditStartDate(e.target.value)} className="w-full border-gray-300 rounded-lg text-sm mb-2" />
-                                        <input type="time" value={editStartTime} onChange={(e) => setEditStartTime(e.target.value)} className="w-full border-gray-300 rounded-lg text-sm" />
+                                        <input type="date" title="Başlangıç Tarihi" value={editStartDate} onChange={(e) => setEditStartDate(e.target.value)} className="w-full border-gray-300 rounded-lg text-sm mb-2" />
+                                        <input type="time" title="Başlangıç Saati" value={editStartTime} onChange={(e) => setEditStartTime(e.target.value)} className="w-full border-gray-300 rounded-lg text-sm" />
                                     </div>
                                     <div>
                                         <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Bitiş</label>
-                                        <input type="date" value={editEndDate} onChange={(e) => setEditEndDate(e.target.value)} className="w-full border-gray-300 rounded-lg text-sm mb-2" />
-                                        <input type="time" value={editEndTime} onChange={(e) => setEditEndTime(e.target.value)} className="w-full border-gray-300 rounded-lg text-sm" />
+                                        <input type="date" title="Bitiş Tarihi" value={editEndDate} onChange={(e) => setEditEndDate(e.target.value)} className="w-full border-gray-300 rounded-lg text-sm mb-2" />
+                                        <input type="time" title="Bitiş Saati" value={editEndTime} onChange={(e) => setEditEndTime(e.target.value)} className="w-full border-gray-300 rounded-lg text-sm" />
                                     </div>
                                 </div>
                             )}
@@ -955,6 +1056,7 @@ export default function ChefDashboard() {
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Eğitmen</label>
                                         <select
+                                            title="Eğitmen Seç"
                                             value={editTrainerId}
                                             onChange={(e) => setEditTrainerId(e.target.value)}
                                             className="w-full border-gray-300 rounded-lg text-sm"
@@ -967,6 +1069,7 @@ export default function ChefDashboard() {
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Eğitim Yeri</label>
                                         <select
+                                            title="Eğitim Yeri Seç"
                                             value={editLocation}
                                             onChange={(e) => setEditLocation(e.target.value)}
                                             className="w-full border-gray-300 rounded-lg text-sm"
