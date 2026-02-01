@@ -1,44 +1,52 @@
 /**
- * Zod Validation Schemas
- * API input validation for all entities
+ * Zod Doğrulama Şemaları
+ * API input validasyonu için tüm entity şemaları
  */
 
 import { z } from "zod";
 
 // ============================================
-// Common Validators
+// Ortak Validatörler
 // ============================================
 
+/** UUID formatı */
 export const uuidSchema = z.string().uuid();
 
+/** Sicil numarası (3-20 karakter, alfanümerik) */
 export const sicilNoSchema = z
     .string()
     .min(3, "Sicil numarası en az 3 karakter olmalı")
     .max(20, "Sicil numarası en fazla 20 karakter olabilir")
     .regex(/^[A-Z0-9]+$/, "Sicil numarası sadece büyük harf ve rakam içerebilir");
 
+/** TC Kimlik numarası (11 hane, sadece rakam) */
 export const tcKimlikNoSchema = z
     .string()
     .length(11, "TC Kimlik numarası 11 haneli olmalı")
     .regex(/^[0-9]+$/, "TC Kimlik numarası sadece rakam içerebilir");
 
+/** Telefon numarası */
 export const phoneSchema = z
     .string()
     .regex(/^\+?[0-9\s-]{10,}$/, "Geçerli bir telefon numarası girin");
 
+/** Tarih formatı (YYYY-MM-DD) */
 export const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Tarih YYYY-MM-DD formatında olmalı");
 
+/** Saat formatı (HH:MM) */
 export const timeSchema = z.string().regex(/^\d{2}:\d{2}$/, "Saat HH:MM formatında olmalı");
 
 // ============================================
-// User Schemas
+// Kullanıcı Şemaları
 // ============================================
 
+/** Giriş formu şeması */
 export const loginSchema = z.object({
     sicil_no: sicilNoSchema,
     password: z.string().min(4, "Şifre en az 4 karakter olmalı"),
 });
 
+/** Kullanıcı oluşturma şeması */
 export const createUserSchema = z.object({
     sicil_no: sicilNoSchema,
     full_name: z.string().min(2, "Ad soyad en az 2 karakter olmalı").max(100),
@@ -46,6 +54,7 @@ export const createUserSchema = z.object({
     password: z.string().min(4, "Şifre en az 4 karakter olmalı"),
 });
 
+/** Kullanıcı güncelleme şeması */
 export const updateUserSchema = z.object({
     id: uuidSchema,
     full_name: z.string().min(2).max(100).optional(),
@@ -55,12 +64,16 @@ export const updateUserSchema = z.object({
 });
 
 // ============================================
-// Personnel Schemas
+// Personel Şemaları
 // ============================================
 
+/** Personel durum enum'ı */
 export const personnelStatusEnum = z.enum(["CALISAN", "AYRILDI", "IZINLI", "PASIF"]);
+
+/** Cinsiyet enum'ı */
 export const genderEnum = z.enum(["ERKEK", "KADIN"]);
 
+/** Personel oluşturma şeması */
 export const createPersonnelSchema = z.object({
     sicilNo: sicilNoSchema,
     fullName: z.string().min(2, "Ad soyad en az 2 karakter olmalı").max(100),
@@ -75,6 +88,7 @@ export const createPersonnelSchema = z.object({
     adres: z.string().max(500).optional().or(z.literal("")),
 });
 
+/** Personel güncelleme şeması */
 export const updatePersonnelSchema = z.object({
     id: uuidSchema,
     fullName: z.string().min(2).max(100).optional(),
@@ -89,6 +103,7 @@ export const updatePersonnelSchema = z.object({
     adres: z.string().max(500).optional().or(z.literal("")).nullable(),
 });
 
+/** Personel listeleme sorgu şeması */
 export const personnelQuerySchema = z.object({
     page: z.coerce.number().int().positive().default(1),
     limit: z.coerce.number().int().positive().max(100).default(50),
@@ -100,13 +115,19 @@ export const personnelQuerySchema = z.object({
 });
 
 // ============================================
-// Training Schemas
+// Eğitim Şemaları
 // ============================================
 
+/** Eğitim kategorisi enum'ı */
 export const trainingCategoryEnum = z.enum(["TEMEL", "TAZELEME", "DIGER"]);
+
+/** Belge türü enum'ı */
 export const documentTypeEnum = z.enum(["EGITIM_KATILIM_CIZELGESI", "SERTIFIKA"]);
+
+/** İç/Dış eğitim enum'ı */
 export const icDisEnum = z.enum(["IC", "DIS"]);
 
+/** Eğitim oluşturma şeması */
 export const createTrainingSchema = z.object({
     code: z.string().min(2, "Eğitim kodu en az 2 karakter olmalı").max(20),
     name: z.string().min(2, "Eğitim adı en az 2 karakter olmalı").max(200),
@@ -117,6 +138,7 @@ export const createTrainingSchema = z.object({
     default_document_type: documentTypeEnum.optional(),
 });
 
+/** Eğitim güncelleme şeması */
 export const updateTrainingSchema = z.object({
     id: uuidSchema,
     code: z.string().min(2).max(20).optional(),
@@ -130,15 +152,17 @@ export const updateTrainingSchema = z.object({
 });
 
 // ============================================
-// Training Topic Schemas
+// Eğitim Konusu Şemaları
 // ============================================
 
+/** Eğitim konusu oluşturma şeması */
 export const createTrainingTopicSchema = z.object({
     trainingId: uuidSchema,
     title: z.string().min(1, "Başlık zorunlu").max(200),
     orderNo: z.coerce.number().int().nonnegative().optional(),
 });
 
+/** Eğitim konusu güncelleme şeması */
 export const updateTrainingTopicSchema = z.object({
     id: uuidSchema,
     title: z.string().min(1).max(200).optional(),
@@ -147,14 +171,16 @@ export const updateTrainingTopicSchema = z.object({
 });
 
 // ============================================
-// Trainer Schemas
+// Eğitmen Şemaları
 // ============================================
 
+/** Eğitmen oluşturma şeması */
 export const createTrainerSchema = z.object({
     sicilNo: sicilNoSchema,
     fullName: z.string().min(2, "Ad soyad en az 2 karakter olmalı").max(100),
 });
 
+/** Eğitmen güncelleme şeması */
 export const updateTrainerSchema = z.object({
     id: uuidSchema,
     sicilNo: sicilNoSchema.optional(),
@@ -163,9 +189,10 @@ export const updateTrainerSchema = z.object({
 });
 
 // ============================================
-// Attendance Schemas
+// Katılım Şemaları
 // ============================================
 
+/** Katılım oluşturma şeması */
 export const createAttendanceSchema = z.object({
     sicil_nos: z.array(sicilNoSchema).min(1, "En az bir personel seçilmeli"),
     training_id: uuidSchema,
@@ -187,6 +214,7 @@ export const createAttendanceSchema = z.object({
     path: ["bitis_tarihi"],
 });
 
+/** Katılım sorgu şeması */
 export const attendanceQuerySchema = z.object({
     search: z.string().max(100).optional(),
     trainingCode: z.string().max(20).optional(),
@@ -197,9 +225,10 @@ export const attendanceQuerySchema = z.object({
 });
 
 // ============================================
-// Import Schemas
+// Import Şemaları
 // ============================================
 
+/** Personel import satır şeması */
 export const personnelImportRowSchema = z.object({
     sicilNo: sicilNoSchema,
     fullName: z.string().min(2).max(100),
@@ -214,6 +243,7 @@ export const personnelImportRowSchema = z.object({
     adres: z.string().max(500).optional(),
 });
 
+/** Katılım import satır şeması */
 export const attendanceImportRowSchema = z.object({
     sicilNo: sicilNoSchema,
     egitimKodu: z.string().min(2).max(20),
@@ -227,19 +257,22 @@ export const attendanceImportRowSchema = z.object({
     egitmenSicil: sicilNoSchema.optional(),
 });
 
+/** Genel import veri şeması */
 export const importDataSchema = z.object({
     data: z.array(z.record(z.string(), z.any())).min(1, "En az bir kayıt olmalı").max(10000, "En fazla 10000 kayıt import edilebilir"),
 });
 
 // ============================================
-// Definition Schemas
+// Tanım Şemaları
 // ============================================
 
+/** Tanım oluşturma şeması (grup, lokasyon, belge) */
 export const createDefinitionSchema = z.object({
     name: z.string().min(1, "İsim zorunlu").max(100),
     description: z.string().max(500).optional(),
 });
 
+/** Tanım güncelleme şeması */
 export const updateDefinitionSchema = z.object({
     id: uuidSchema,
     name: z.string().min(1).max(100).optional(),
@@ -248,20 +281,22 @@ export const updateDefinitionSchema = z.object({
 });
 
 // ============================================
-// Report Query Schemas
+// Rapor Sorgu Şemaları
 // ============================================
 
+/** Aylık rapor sorgu şeması */
 export const monthlyReportQuerySchema = z.object({
     year: z.coerce.number().int().min(2020).max(2100).default(new Date().getFullYear()),
     month: z.coerce.number().int().min(1).max(12).default(new Date().getMonth() + 1),
 });
 
+/** Yıllık rapor sorgu şeması */
 export const yearlyReportQuerySchema = z.object({
     year: z.coerce.number().int().min(2020).max(2100).default(new Date().getFullYear()),
 });
 
 // ============================================
-// Type Exports
+// Tip Export'ları
 // ============================================
 
 export type LoginInput = z.infer<typeof loginSchema>;

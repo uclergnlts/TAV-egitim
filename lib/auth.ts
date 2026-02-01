@@ -1,6 +1,6 @@
 /**
- * Authentication Library
- * JWT tabanlı kimlik doğrulama
+ * Kimlik Doğrulama Kütüphanesi
+ * JWT tabanlı giriş/çıkış işlemleri
  */
 
 import { SignJWT, jwtVerify } from "jose";
@@ -9,20 +9,22 @@ import { db, users, type User } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { compare } from "bcryptjs";
 
-// JWT Secret key
+// JWT Secret anahtar (çevre değişkeninden alınır)
 const JWT_SECRET = new TextEncoder().encode(
     process.env.JWT_SECRET || "fallback-secret-key-for-development-only"
 );
 
-// Token expiration time (24 hours)
+// Token geçerlilik süresi (24 saat)
 const TOKEN_EXPIRATION = "24h";
 
-// Cookie name
+// Cookie adı
 const AUTH_COOKIE = "auth_token";
 
-/**
- * JWT Token payload type
- */
+// ============================================
+// Tip Tanımları
+// ============================================
+
+/** JWT Token içeriği */
 export interface TokenPayload {
     userId: string;
     sicilNo: string;
@@ -30,9 +32,7 @@ export interface TokenPayload {
     role: "CHEF" | "ADMIN";
 }
 
-/**
- * Login result type
- */
+/** Giriş sonucu */
 export interface LoginResult {
     success: boolean;
     message: string;
@@ -44,15 +44,20 @@ export interface LoginResult {
     };
 }
 
+// ============================================
+// Giriş / Çıkış İşlemleri
+// ============================================
+
 /**
  * Kullanıcı girişi yapar
+ * Sicil ve şifre kontrolü sonrası JWT token oluşturur
  */
 export async function login(
     sicilNo: string,
     password: string
 ): Promise<LoginResult> {
     try {
-        // 1. Kullanıcıyı bul
+        // Kullanıcıyı veritabanında bul
         const user = await db.query.users.findFirst({
             where: eq(users.sicilNo, sicilNo),
         });
@@ -64,7 +69,7 @@ export async function login(
             };
         }
 
-        // 2. Aktif mi kontrol et
+        // Hesap aktif mi kontrol et
         if (!user.isActive) {
             return {
                 success: false,
@@ -72,7 +77,7 @@ export async function login(
             };
         }
 
-        // 3. Şifre kontrolü
+        // Şifreyi doğrula
         const isValidPassword = await compare(password, user.passwordHash);
 
         if (!isValidPassword) {
@@ -82,7 +87,7 @@ export async function login(
             };
         }
 
-        // 4. JWT token oluştur
+        // JWT token oluştur
         const token = await createToken({
             userId: user.id,
             sicilNo: user.sicilNo,
@@ -90,13 +95,13 @@ export async function login(
             role: user.role,
         });
 
-        // 5. Cookie'ye kaydet
+        // Token'ı cookie'ye kaydet
         const cookieStore = await cookies();
         cookieStore.set(AUTH_COOKIE, token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
             sameSite: "lax",
-            maxAge: 60 * 60 * 24, // 24 hours
+            maxAge: 60 * 60 * 24, // 24 saat
             path: "/",
         });
 
@@ -119,17 +124,17 @@ export async function login(
     }
 }
 
-/**
- * Çıkış yapar
- */
+/** Çıkış yapar, auth cookie'yi siler */
 export async function logout(): Promise<void> {
     const cookieStore = await cookies();
     cookieStore.delete(AUTH_COOKIE);
 }
 
-/**
- * JWT token oluşturur
- */
+// ============================================
+// Token İşlemleri
+// ============================================
+
+/** JWT token oluşturur */
 async function createToken(payload: TokenPayload): Promise<string> {
     return new SignJWT(payload as unknown as Record<string, unknown>)
         .setProtectedHeader({ alg: "HS256" })
@@ -138,9 +143,7 @@ async function createToken(payload: TokenPayload): Promise<string> {
         .sign(JWT_SECRET);
 }
 
-/**
- * JWT token doğrular ve payload döner
- */
+/** JWT token doğrular, payload döner */
 export async function verifyToken(
     token: string
 ): Promise<TokenPayload | null> {
@@ -152,9 +155,7 @@ export async function verifyToken(
     }
 }
 
-/**
- * Mevcut oturumu kontrol eder
- */
+/** Mevcut oturumu kontrol eder */
 export async function getSession(): Promise<TokenPayload | null> {
     try {
         const cookieStore = await cookies();
@@ -170,8 +171,13 @@ export async function getSession(): Promise<TokenPayload | null> {
     }
 }
 
+// ============================================
+// Yetki Kontrolleri
+// ============================================
+
 /**
- * Kullanıcının belirli bir role sahip olup olmadığını kontrol eder
+ * Kullanıcının belirli role sahip olup olmadığını kontrol eder
+ * ADMIN her role sahiptir
  */
 export async function hasRole(
     requiredRole: "CHEF" | "ADMIN"
@@ -182,7 +188,7 @@ export async function hasRole(
         return false;
     }
 
-    // ADMIN her role sahiptir
+    // ADMIN her işlemi yapabilir
     if (session.role === "ADMIN") {
         return true;
     }
@@ -190,17 +196,13 @@ export async function hasRole(
     return session.role === requiredRole;
 }
 
-/**
- * Sadece ADMIN yetkisi kontrolü
- */
+/** Sadece ADMIN yetkisi kontrolü */
 export async function isAdmin(): Promise<boolean> {
     const session = await getSession();
     return session?.role === "ADMIN";
 }
 
-/**
- * Sadece ŞEF yetkisi kontrolü
- */
+/** Sadece ŞEF yetkisi kontrolü */
 export async function isChef(): Promise<boolean> {
     const session = await getSession();
     return session?.role === "CHEF";

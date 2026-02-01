@@ -1,20 +1,23 @@
 /**
- * Database connection - Turso LibSQL
+ * Veritabanı Bağlantısı - Turso LibSQL
+ * Drizzle ORM ile SQLite bağlantısı
  */
 
 import { createClient } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
 import * as schema from "./schema";
 
-// Check for required environment variables
+// Çevre değişkeninden veritabanı URL'si
 const dbUrl = process.env.TURSO_DATABASE_URL;
 
-// Create client only if URL is defined (avoid build errors during static generation)
+// LibSQL client oluştur (build aşamasında hata vermemesi için fallback)
 const client = createClient({
-    url: dbUrl || "file:local.db", // Fallback for build phase
+    url: dbUrl || "file:local.db",
     authToken: process.env.TURSO_AUTH_TOKEN,
 });
 
+// Drizzle ORM instance'ı
 export const db = drizzle(client, { schema });
 
+// Schema export'ları
 export * from "./schema";

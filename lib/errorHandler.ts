@@ -1,14 +1,16 @@
 /**
- * API Error Handler
- * Standardized error handling for API routes
+ * API Hata Yönetimi
+ * Standart hata yapısı ve yardımcı fonksiyonlar
  */
 
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 
-/**
- * Standard API error response structure
- */
+// ============================================
+// Tip Tanımları
+// ============================================
+
+/** Standart API hata yanıt yapısı */
 export interface ApiErrorResponse {
     success: false;
     message: string;
@@ -17,12 +19,14 @@ export interface ApiErrorResponse {
         path: string;
         message: string;
     }>;
-    stack?: string; // Only in development
+    stack?: string; // Sadece geliştirme ortamında
 }
 
-/**
- * Custom API Error class
- */
+// ============================================
+// Özel Hata Sınıfı
+// ============================================
+
+/** API için özel hata sınıfı */
 export class ApiError extends Error {
     constructor(
         message: string,
@@ -35,9 +39,11 @@ export class ApiError extends Error {
     }
 }
 
-/**
- * Handle Zod validation errors
- */
+// ============================================
+// Hata İşleyicileri
+// ============================================
+
+/** Zod validasyon hatalarını işler */
 export function handleZodError(error: ZodError): ApiErrorResponse {
     return {
         success: false,
@@ -50,15 +56,13 @@ export function handleZodError(error: ZodError): ApiErrorResponse {
     };
 }
 
-/**
- * Handle database errors
- */
+/** Veritabanı hatalarını işler */
 export function handleDatabaseError(error: Error): ApiErrorResponse {
-    // SQLite unique constraint error
+    // Benzersiz alan hatası (duplicate)
     if (error.message.includes("UNIQUE constraint failed")) {
         const match = error.message.match(/UNIQUE constraint failed: (\w+)\.(\w+)/);
         const field = match ? match[2] : "field";
-        
+
         return {
             success: false,
             message: `Bu ${field} zaten kullanımda`,
@@ -66,7 +70,7 @@ export function handleDatabaseError(error: Error): ApiErrorResponse {
         };
     }
 
-    // Foreign key constraint error
+    // Foreign key hatası
     if (error.message.includes("FOREIGN KEY constraint failed")) {
         return {
             success: false,
@@ -75,7 +79,7 @@ export function handleDatabaseError(error: Error): ApiErrorResponse {
         };
     }
 
-    // Generic database error
+    // Genel veritabanı hatası
     return {
         success: false,
         message: "Veritabanı hatası oluştu",
@@ -84,9 +88,7 @@ export function handleDatabaseError(error: Error): ApiErrorResponse {
     };
 }
 
-/**
- * Handle authentication errors
- */
+/** Kimlik doğrulama hatalarını işler */
 export function handleAuthError(error: Error): ApiErrorResponse {
     return {
         success: false,
@@ -95,9 +97,7 @@ export function handleAuthError(error: Error): ApiErrorResponse {
     };
 }
 
-/**
- * Handle authorization errors
- */
+/** Yetki hatalarını işler (403) */
 export function handleForbiddenError(): ApiErrorResponse {
     return {
         success: false,
@@ -106,9 +106,7 @@ export function handleForbiddenError(): ApiErrorResponse {
     };
 }
 
-/**
- * Handle not found errors
- */
+/** Bulunamadı hatalarını işler (404) */
 export function handleNotFoundError(resource: string = "Kayıt"): ApiErrorResponse {
     return {
         success: false,
@@ -117,18 +115,20 @@ export function handleNotFoundError(resource: string = "Kayıt"): ApiErrorRespon
     };
 }
 
-/**
- * Generic error handler
- */
+// ============================================
+// Genel Hata Yönetimi
+// ============================================
+
+/** Tüm hata tiplerini yakalar ve yanıt döner */
 export function handleError(error: unknown): NextResponse {
     console.error("API Error:", error);
 
-    // Zod validation error
+    // Zod validasyon hatası
     if (error instanceof ZodError) {
         return NextResponse.json(handleZodError(error), { status: 400 });
     }
 
-    // Custom API error
+    // Özel API hatası
     if (error instanceof ApiError) {
         const response: ApiErrorResponse = {
             success: false,
@@ -144,9 +144,9 @@ export function handleError(error: unknown): NextResponse {
         return NextResponse.json(response, { status: error.statusCode });
     }
 
-    // Standard Error
+    // Standart Error
     if (error instanceof Error) {
-        // Check for database errors
+        // Veritabanı kısıtlama hatası
         if (error.message.includes("constraint failed")) {
             return NextResponse.json(handleDatabaseError(error), { status: 409 });
         }
@@ -164,7 +164,7 @@ export function handleError(error: unknown): NextResponse {
         return NextResponse.json(response, { status: 500 });
     }
 
-    // Unknown error
+    // Bilinmeyen hata
     return NextResponse.json(
         {
             success: false,
@@ -176,7 +176,8 @@ export function handleError(error: unknown): NextResponse {
 }
 
 /**
- * Wrap API handler with error handling
+ * API handler'ı hata yönetimi ile sarar
+ * Otomatik try-catch uygular
  */
 export function withErrorHandler<T extends (...args: any[]) => Promise<NextResponse>>(
     handler: T
@@ -190,9 +191,11 @@ export function withErrorHandler<T extends (...args: any[]) => Promise<NextRespo
     }) as T;
 }
 
-/**
- * Success response helper
- */
+// ============================================
+// Yanıt Yardımcıları
+// ============================================
+
+/** Başarılı yanıt döner */
 export function successResponse<T>(data: T, message?: string): NextResponse {
     return NextResponse.json({
         success: true,
@@ -201,9 +204,7 @@ export function successResponse<T>(data: T, message?: string): NextResponse {
     });
 }
 
-/**
- * Error response helper
- */
+/** Hata yanıtı döner */
 export function errorResponse(
     message: string,
     statusCode: number = 500,

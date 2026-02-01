@@ -1,63 +1,51 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
-/**
- * Utility function to merge Tailwind CSS classes
- */
+// ============================================
+// CSS Sınıf İşlemleri
+// ============================================
+
+/** Tailwind class'larını birleştirir, çakışanları çözer */
 export function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
 }
 
-/**
- * Format date to Turkish locale (DD.MM.YYYY)
- */
+// ============================================
+// Tarih ve Saat Formatlama
+// ============================================
+
+/** Tarihi Türkçe formata çevirir (DD.MM.YYYY) */
 export function formatDate(date: Date | string): string {
     const d = new Date(date);
     return d.toLocaleDateString("tr-TR");
 }
 
-/**
- * Format time (HH:MM)
- */
+/** Saati HH:MM formatına çevirir */
 export function formatTime(time: string): string {
     return time.substring(0, 5);
 }
 
-/**
- * Get year from date
- */
+/** Tarihten yılı alır */
 export function getYear(date: Date | string): number {
     return new Date(date).getFullYear();
 }
 
-/**
- * Get month from date (1-12)
- */
+/** Tarihten ayı alır (1-12) */
 export function getMonth(date: Date | string): number {
     return new Date(date).getMonth() + 1;
 }
 
-/**
- * Month names in Turkish
- */
+/** Ay isimleri (Türkçe) */
 export const MONTHS_TR = [
-    "Ocak",
-    "Şubat",
-    "Mart",
-    "Nisan",
-    "Mayıs",
-    "Haziran",
-    "Temmuz",
-    "Ağustos",
-    "Eylül",
-    "Ekim",
-    "Kasım",
-    "Aralık",
+    "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
+    "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık",
 ];
 
-/**
- * Personel durumu labels
- */
+// ============================================
+// Sabit Değerler (Labels)
+// ============================================
+
+/** Personel durumu seçenekleri */
 export const PERSONEL_DURUMU = {
     CALISAN: "Çalışan",
     AYRILDI: "Ayrıldı",
@@ -65,68 +53,56 @@ export const PERSONEL_DURUMU = {
     PASIF: "Pasif",
 } as const;
 
-/**
- * Eğitim yeri labels
- */
+/** Eğitim yeri seçenekleri */
 export const EGITIM_YERI = {
     CIHAZ_BASINDA: "Cihaz Başında",
     EGITIM_KURUMUNDA: "Eğitim Kurumunda",
     DIGER: "Diğer",
 } as const;
 
-/**
- * Belge türü labels
- */
+/** Belge türü seçenekleri */
 export const BELGE_TURU = {
     EGITIM_KATILIM_CIZELGESI: "Eğitim Katılım Çizelgesi",
     SERTIFIKA: "Sertifika",
 } as const;
 
-/**
- * Eğitim kategorileri
- */
+/** Eğitim kategorileri */
 export const EGITIM_KATEGORISI = {
     TEMEL: "Temel",
     TAZELEME: "Tazeleme",
     DIGER: "Diğer",
 } as const;
 
-// ==================== TYPE GUARDS & VALIDATION ====================
+// ============================================
+// Tip Kontrolleri ve Doğrulama
+// ============================================
 
-/**
- * Type guard: Check if value is a non-empty string
- */
+/** Değer boş olmayan string mi kontrol eder */
 export function isNonEmptyString(value: unknown): value is string {
     return typeof value === "string" && value.trim().length > 0;
 }
 
-/**
- * Type guard: Check if value is a valid date string
- */
+/** Geçerli tarih string'i mi kontrol eder */
 export function isValidDateString(value: unknown): value is string {
     if (typeof value !== "string") return false;
     const date = new Date(value);
     return !isNaN(date.getTime());
 }
 
-/**
- * Type guard: Check if value is a valid time string (HH:MM)
- */
+/** Geçerli saat formatı mı kontrol eder (HH:MM) */
 export function isValidTimeString(value: unknown): value is string {
     if (typeof value !== "string") return false;
     return /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(value);
 }
 
-/**
- * Validate sicil number format (alphanumeric, 3-20 chars)
- */
+/** Sicil numarası formatını doğrular (3-20 karakter, alfanümerik) */
 export function isValidSicilNo(sicilNo: string): boolean {
     return /^[a-zA-Z0-9]{3,20}$/.test(sicilNo.trim());
 }
 
 /**
- * Parse and validate sicil numbers from string
- * Returns object with valid and invalid sicils
+ * Sicil numaralarını string'den ayıklar
+ * Virgül veya satır sonu ile ayrılmış sicilleri parse eder
  */
 export function parseSicilNos(input: string): {
     valid: string[];
@@ -160,10 +136,15 @@ export function parseSicilNos(input: string): {
     return { valid, invalid, duplicates };
 }
 
-// ==================== FORM UTILITIES ====================
+// ============================================
+// Form İşlemleri
+// ============================================
 
 /**
- * Calculate end time based on start time and duration
+ * Başlangıç saatine süre ekleyerek bitiş saati hesaplar
+ * @param startTime - Başlangıç saati (HH:MM)
+ * @param durationMinutes - Süre (dakika)
+ * @returns Bitiş saati (HH:MM) veya null
  */
 export function calculateEndTime(
     startTime: string,
@@ -182,9 +163,7 @@ export function calculateEndTime(
     return `${newHours.toString().padStart(2, "0")}:${newMinutes.toString().padStart(2, "0")}`;
 }
 
-/**
- * Format duration in minutes to human readable string
- */
+/** Dakika cinsinden süreyi okunabilir formata çevirir */
 export function formatDuration(minutes: number): string {
     if (minutes < 60) {
         return `${minutes} dk`;
@@ -195,7 +174,8 @@ export function formatDuration(minutes: number): string {
 }
 
 /**
- * Debounce function for search inputs
+ * Arama input'ları için debounce fonksiyonu
+ * Belirli süre geçmeden fonksiyonu çalıştırmaz
  */
 export function debounce<T extends (...args: unknown[]) => unknown>(
     fn: T,
@@ -208,25 +188,21 @@ export function debounce<T extends (...args: unknown[]) => unknown>(
     };
 }
 
-/**
- * Deep clone an object
- */
+/** Nesneyi derin kopyalar */
 export function deepClone<T>(obj: T): T {
     return JSON.parse(JSON.stringify(obj));
 }
 
-/**
- * Generate unique ID
- */
+/** Benzersiz ID üretir */
 export function generateId(): string {
     return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
-// ==================== ARRAY UTILITIES ====================
+// ============================================
+// Dizi İşlemleri
+// ============================================
 
-/**
- * Group array items by key
- */
+/** Diziyi belirli anahtara göre gruplar */
 export function groupBy<T>(array: T[], key: keyof T): Record<string, T[]> {
     return array.reduce((groups, item) => {
         const groupKey = String(item[key]);
@@ -237,16 +213,12 @@ export function groupBy<T>(array: T[], key: keyof T): Record<string, T[]> {
     }, {} as Record<string, T[]>);
 }
 
-/**
- * Remove duplicates from array
- */
+/** Diziden tekrarları kaldırır */
 export function unique<T>(array: T[]): T[] {
     return [...new Set(array)];
 }
 
-/**
- * Chunk array into smaller arrays
- */
+/** Diziyi belirli boyutta parçalara böler */
 export function chunk<T>(array: T[], size: number): T[][] {
     return array.reduce((chunks, item, index) => {
         const chunkIndex = Math.floor(index / size);
@@ -255,10 +227,15 @@ export function chunk<T>(array: T[], size: number): T[][] {
     }, [] as T[][]);
 }
 
-// ==================== LOCAL STORAGE UTILITIES ====================
+// ============================================
+// LocalStorage İşlemleri
+// ============================================
 
 /**
- * Safely save to localStorage with expiration
+ * LocalStorage'a veri kaydeder (opsiyonel süre sınırı ile)
+ * @param key - Anahtar
+ * @param data - Kaydedilecek veri
+ * @param ttlMinutes - Süre sınırı (dakika), opsiyonel
  */
 export function saveToStorage<T>(key: string, data: T, ttlMinutes?: number): void {
     try {
@@ -273,7 +250,8 @@ export function saveToStorage<T>(key: string, data: T, ttlMinutes?: number): voi
 }
 
 /**
- * Safely load from localStorage with expiration check
+ * LocalStorage'dan veri yükler (süre kontrolü ile)
+ * Süresi geçmişse otomatik siler
  */
 export function loadFromStorage<T>(key: string): T | null {
     try {
@@ -292,9 +270,7 @@ export function loadFromStorage<T>(key: string): T | null {
     }
 }
 
-/**
- * Remove item from localStorage
- */
+/** LocalStorage'dan veri siler */
 export function removeFromStorage(key: string): void {
     try {
         localStorage.removeItem(key);
@@ -303,11 +279,13 @@ export function removeFromStorage(key: string): void {
     }
 }
 
-// ==================== API UTILITIES ====================
+// ============================================
+// API İşlemleri
+// ============================================
 
 /**
- * API helper function for making HTTP requests
- * Automatically handles common request/response patterns
+ * HTTP istekleri için yardımcı fonksiyon
+ * JSON header'larını otomatik ekler
  */
 export async function api(
     url: string,
