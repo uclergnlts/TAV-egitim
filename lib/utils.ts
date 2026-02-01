@@ -302,3 +302,23 @@ export function removeFromStorage(key: string): void {
         console.error("localStorage remove error:", e);
     }
 }
+
+// ==================== API UTILITIES ====================
+
+/**
+ * API helper function for making HTTP requests
+ * Automatically handles common request/response patterns
+ */
+export async function api(
+    url: string,
+    options?: RequestInit
+): Promise<Response> {
+    const response = await fetch(url, {
+        ...options,
+        headers: {
+            "Content-Type": "application/json",
+            ...options?.headers,
+        },
+    });
+    return response;
+}
