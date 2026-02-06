@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
             errors: [] as string[],
         };
 
-        const batchLogDetails: any[] = [];
+        const batchLogDetails: Array<{ id: string; sicil: string }> = [];
 
         // Batch işlem
         for (const sicilNo of sicilNos) {
@@ -190,8 +190,7 @@ export async function POST(request: NextRequest) {
                 results.success_count++;
                 batchLogDetails.push({ id: newRecord.id, sicil: cleanSicil });
 
-            } catch (err: any) {
-                console.error(`Error processing sicil ${sicilNo}:`, err);
+            } catch {
                 results.error_count++;
                 results.errors.push(`${sicilNo}: Beklenmeyen hata`);
             }
@@ -219,8 +218,7 @@ export async function POST(request: NextRequest) {
             data: results,
         });
 
-    } catch (error) {
-        console.error("Attendance batch create error:", error);
+    } catch {
         return NextResponse.json(
             { success: false, message: "Beklenmeyen bir hata oluştu" },
             { status: 500 }
@@ -280,7 +278,7 @@ export async function PUT(request: NextRequest) {
         }
 
         // Güncellenecek alanları map et
-        const updateData: any = {};
+        const updateData: Record<string, string | number | null> = {};
         let needsYearMonthUpdate = false;
 
         switch (field) {
@@ -369,7 +367,7 @@ export async function PUT(request: NextRequest) {
         // Audit Log
         await logAction({
             userId: session.userId,
-            userRole: "ADMIN",
+            userRole: session.role as "ADMIN" | "CHEF",
             actionType: "UPDATE",
             entityType: "attendance",
             entityId: id,
@@ -383,8 +381,7 @@ export async function PUT(request: NextRequest) {
             data: updated,
         });
 
-    } catch (error) {
-        console.error("Attendance update error:", error);
+    } catch {
         return NextResponse.json(
             { success: false, message: "Güncelleme işlemi başarısız" },
             { status: 500 }
@@ -452,8 +449,7 @@ export async function PATCH(request: NextRequest) {
             deletedCount: existingRecords.length,
         });
 
-    } catch (error) {
-        console.error("Attendance bulk delete error:", error);
+    } catch {
         return NextResponse.json(
             { success: false, message: "Toplu silme işlemi başarısız" },
             { status: 500 }
@@ -519,8 +515,7 @@ export async function DELETE(request: NextRequest) {
             message: "Katılım kaydı silindi",
         });
 
-    } catch (error) {
-        console.error("Attendance delete error:", error);
+    } catch {
         return NextResponse.json(
             { success: false, message: "Silme işlemi başarısız" },
             { status: 500 }

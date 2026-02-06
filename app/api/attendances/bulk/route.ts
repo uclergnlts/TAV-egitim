@@ -39,7 +39,6 @@ export async function POST(req: Request) {
         // Zod Validation
         const validation = bulkSchema.safeParse(body);
         if (!validation.success) {
-            console.error("Validation error:", validation.error);
             return NextResponse.json({ success: false, message: "Veri formatı hatalı", errors: validation.error.format() }, { status: 400 });
         }
 
@@ -84,6 +83,7 @@ export async function POST(req: Request) {
         });
         const trainerMap = new Map(trainerList.map(t => [t.id, t]));
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const insertValues: any[] = [];
         const errors: string[] = [];
 
@@ -111,6 +111,12 @@ export async function POST(req: Request) {
             const diffMs = end.getTime() - start.getTime();
             const diffMin = Math.round(diffMs / 60000);
 
+            // Negatif süre kontrolü
+            if (diffMin <= 0) {
+                errors.push(`${record.sicil_no}: Bitiş zamanı başlangıç zamanından önce olamaz`);
+                continue;
+            }
+
             // Veri hazırlığı
             insertValues.push({
                 personelId: person.id,
@@ -136,7 +142,7 @@ export async function POST(req: Request) {
                 bitisTarihi: record.bitis_tarihi,
                 baslamaSaati: record.baslama_saati,
                 bitisSaati: record.bitis_saati,
-                egitimSuresiDk: diffMin > 0 ? diffMin : 0,
+                egitimSuresiDk: diffMin,
 
                 // Detaylar
                 egitimYeri: record.egitim_yeri,
@@ -156,10 +162,10 @@ export async function POST(req: Request) {
             // Bulk Insert
             try {
                 await db.insert(attendances).values(insertValues);
-            } catch (dbError: any) {
-                console.error("DB Insert Error:", dbError);
+            } catch (dbError: unknown) {
                 // Check unique constraint violations
-                if (dbError.code === "SQLITE_CONSTRAINT" || dbError.message?.includes("UNIQUE")) {
+                const error = dbError as { code?: string; message?: string };
+                if (error.code === "SQLITE_CONSTRAINT" || error.message?.includes("UNIQUE")) {
                     return NextResponse.json({
                         success: false,
                         message: "Bazı kayıtlar zaten mevcut (Mükerrer Kayıt Hatası). Lütfen kontrol ediniz.",
@@ -180,8 +186,7 @@ export async function POST(req: Request) {
             }
         });
 
-    } catch (error) {
-        console.error("Bulk insert server error:", error);
+    } catch {
         return NextResponse.json({ success: false, message: "Sunucu hatası" }, { status: 500 });
     }
 }

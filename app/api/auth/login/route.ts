@@ -45,9 +45,7 @@ export async function POST(request: NextRequest) {
         const { sicil_no, password } = validation.data;
 
         // Login işlemi
-        console.log("Attempting login for:", sicil_no);
         const result = await login(sicil_no, password);
-        console.log("Login result:", result);
 
         if (!result.success) {
             return NextResponse.json(
@@ -75,17 +73,11 @@ export async function POST(request: NextRequest) {
             role: result.user?.role,
             full_name: result.user?.fullName,
         });
-    } catch (error: any) {
-        console.error("Login API error details:", {
-            message: error.message,
-            stack: error.stack,
-            cause: error.cause
-        });
-
+    } catch {
         return NextResponse.json(
             {
                 success: false,
-                message: "Beklenmeyen bir hata oluştu: " + (error?.message || "Bilinmeyen hata"),
+                message: "Beklenmeyen bir hata oluştu",
             },
             { status: 500 }
         );

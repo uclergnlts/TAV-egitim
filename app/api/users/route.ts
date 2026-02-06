@@ -55,8 +55,7 @@ export async function GET(request: NextRequest) {
             success: true,
             data: result,
         });
-    } catch (error) {
-        console.error("Users GET error:", error);
+    } catch {
         return NextResponse.json(
             { success: false, message: "Bir hata oluştu" },
             { status: 500 }
@@ -141,8 +140,7 @@ export async function POST(request: NextRequest) {
                 role: newUser.role,
             },
         });
-    } catch (error) {
-        console.error("Users POST error:", error);
+    } catch {
         return NextResponse.json(
             { success: false, message: "Bir hata oluştu" },
             { status: 500 }
@@ -181,7 +179,7 @@ export async function PUT(request: NextRequest) {
         }
 
         // Build update object
-        const updateData: Record<string, any> = {
+        const updateData: Record<string, unknown> = {
             updatedAt: sql`CURRENT_TIMESTAMP`,
         };
 
@@ -211,8 +209,7 @@ export async function PUT(request: NextRequest) {
             success: true,
             message: "Kullanıcı güncellendi",
         });
-    } catch (error) {
-        console.error("Users PUT error:", error);
+    } catch {
         return NextResponse.json(
             { success: false, message: "Bir hata oluştu" },
             { status: 500 }
@@ -274,8 +271,7 @@ export async function DELETE(request: NextRequest) {
             success: true,
             message: "Kullanıcı silindi",
         });
-    } catch (error) {
-        console.error("Users DELETE error:", error);
+    } catch {
         return NextResponse.json(
             { success: false, message: "Bir hata oluştu" },
             { status: 500 }

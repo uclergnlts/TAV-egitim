@@ -8,9 +8,19 @@ import type { NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 import { checkRateLimit, getClientIP, RateLimitPresets } from "./lib/rateLimit";
 
-const JWT_SECRET = new TextEncoder().encode(
-    process.env.JWT_SECRET || "fallback-secret-key-for-development-only"
-);
+// JWT Secret anahtar (lazy evaluation for build time compatibility)
+let _jwtSecret: Uint8Array | null = null;
+const getJwtSecret = (): Uint8Array => {
+    if (!_jwtSecret) {
+        if (!process.env.JWT_SECRET && process.env.NODE_ENV === "production") {
+            throw new Error("JWT_SECRET environment variable is required in production");
+        }
+        _jwtSecret = new TextEncoder().encode(
+            process.env.JWT_SECRET || "fallback-secret-key-for-development-only"
+        );
+    }
+    return _jwtSecret;
+};
 
 // Korumasız rotalar (herkes erişebilir)
 const publicRoutes = ["/", "/login", "/api/auth/login"];
@@ -84,7 +94,7 @@ export async function middleware(request: NextRequest) {
 
     // Token doğrulama
     try {
-        const { payload } = await jwtVerify(token, JWT_SECRET);
+        const { payload } = await jwtVerify(token, getJwtSecret());
         const userRole = payload.role as string;
 
         // ADMIN rotaları kontrolü

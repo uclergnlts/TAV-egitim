@@ -6,15 +6,15 @@ import { api } from "@/lib/utils";
 
 /** Katılım kaydı veri yapısı */
 interface AttendanceRecord {
-    id: number;
-    personnelId: number;
-    trainingId: number;
+    id: string;
+    personnelId: string;
+    trainingId: string;
     trainingDate: string;
     startTime: string;
     endTime: string;
-    locationId: number;
-    trainerId: number;
-    documentId: number | null;
+    locationId: string;
+    trainerId: string;
+    documentId: string | null;
     sicil: string;
     name?: string;
     personnelName?: string;
@@ -38,7 +38,7 @@ interface AttendanceFormData {
 /** Yeni katılım kaydı */
 interface NewAttendance {
     sicil: string;
-    personnelId: number;
+    personnelId: string;
 }
 
 // ============================================
@@ -110,7 +110,7 @@ class AttendanceService {
     }
 
     /** Katılım kaydını siler */
-    static async deleteAttendance(id: number): Promise<void> {
+    static async deleteAttendance(id: string): Promise<void> {
         const response = await api(`/api/attendances/${id}`, {
             method: "DELETE",
         });
@@ -123,7 +123,7 @@ class AttendanceService {
 
     /** Katılım kaydını günceller */
     static async updateAttendance(
-        id: number,
+        id: string,
         data: Partial<AttendanceRecord>
     ): Promise<AttendanceRecord> {
         const response = await api(`/api/attendances/${id}`, {
@@ -143,7 +143,7 @@ class AttendanceService {
     }
 
     /** Katılım kaydını PDF olarak indirir */
-    static async downloadAttendancePDF(id: number): Promise<Blob> {
+    static async downloadAttendancePDF(id: string): Promise<Blob> {
         const response = await api(`/api/attendances/${id}/pdf`, {
             method: "GET",
         });
@@ -163,8 +163,8 @@ class AttendanceService {
     static async exportToExcel(filters?: {
         startDate?: string;
         endDate?: string;
-        trainingId?: number;
-        locationId?: number;
+        trainingId?: string;
+        locationId?: string;
     }): Promise<Blob> {
         const queryParams = new URLSearchParams();
         if (filters?.startDate) queryParams.append("startDate", filters.startDate);
@@ -191,8 +191,8 @@ class AttendanceService {
         total: number;
         thisMonth: number;
         thisWeek: number;
-        byTraining: { trainingId: number; trainingName: string; count: number }[];
-        byLocation: { locationId: number; locationName: string; count: number }[];
+        byTraining: { trainingId: string; trainingName: string; count: number }[];
+        byLocation: { locationId: string; locationName: string; count: number }[];
     }> {
         const response = await api("/api/attendances/statistics");
 

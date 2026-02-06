@@ -9,10 +9,19 @@ import { db, users, type User } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { compare } from "bcryptjs";
 
-// JWT Secret anahtar (çevre değişkeninden alınır)
-const JWT_SECRET = new TextEncoder().encode(
-    process.env.JWT_SECRET || "fallback-secret-key-for-development-only"
-);
+// JWT Secret anahtar (lazy evaluation for build time compatibility)
+let _jwtSecret: Uint8Array | null = null;
+const getJwtSecret = (): Uint8Array => {
+    if (!_jwtSecret) {
+        if (!process.env.JWT_SECRET && process.env.NODE_ENV === "production") {
+            throw new Error("JWT_SECRET environment variable is required in production");
+        }
+        _jwtSecret = new TextEncoder().encode(
+            process.env.JWT_SECRET || "fallback-secret-key-for-development-only"
+        );
+    }
+    return _jwtSecret;
+};
 
 // Token geçerlilik süresi (24 saat)
 const TOKEN_EXPIRATION = "24h";
@@ -115,8 +124,7 @@ export async function login(
                 role: user.role,
             },
         };
-    } catch (error) {
-        console.error("Login error:", error);
+    } catch {
         return {
             success: false,
             message: "Bir hata oluştu. Lütfen tekrar deneyin.",
@@ -140,7 +148,7 @@ async function createToken(payload: TokenPayload): Promise<string> {
         .setProtectedHeader({ alg: "HS256" })
         .setIssuedAt()
         .setExpirationTime(TOKEN_EXPIRATION)
-        .sign(JWT_SECRET);
+        .sign(getJwtSecret());
 }
 
 /** JWT token doğrular, payload döner */
@@ -148,7 +156,7 @@ export async function verifyToken(
     token: string
 ): Promise<TokenPayload | null> {
     try {
-        const { payload } = await jwtVerify(token, JWT_SECRET);
+        const { payload } = await jwtVerify(token, getJwtSecret());
         return payload as unknown as TokenPayload;
     } catch {
         return null;

@@ -135,8 +135,8 @@ export default function ChefDashboard() {
                 if (data.startTime) setStartTime(data.startTime);
                 if (data.endTime) setEndTime(data.endTime);
                 if (data.sicilNos) setSicilNos(data.sicilNos);
-            } catch (e) {
-                console.error('Form data load error:', e);
+            } catch {
+                // Form data could not be loaded, use defaults
             }
         }
     }, []);
@@ -176,8 +176,8 @@ export default function ChefDashboard() {
             const docRes = await fetch("/api/definitions/documents");
             const docData = await docRes.json();
             if (docData.success) setDocumentTypes(docData.data);
-        } catch (err) {
-            console.error("Tanımlar yüklenemedi", err);
+        } catch {
+            // Definitions could not be loaded
         }
     };
 
@@ -203,8 +203,8 @@ export default function ChefDashboard() {
             const res = await fetch("/api/trainings");
             const data = await res.json();
             if (data.success) setTrainings(data.data);
-        } catch (err) {
-            console.error("Eğitimler yüklenemedi", err);
+        } catch {
+            // Trainings could not be loaded
         }
     };
 
@@ -213,8 +213,8 @@ export default function ChefDashboard() {
             const res = await fetch("/api/trainers");
             const data = await res.json();
             if (data.success) setTrainers(data.data);
-        } catch (err) {
-            console.error("Eğitmenler yüklenemedi", err);
+        } catch {
+            // Trainers could not be loaded
         }
     };
 
@@ -320,7 +320,14 @@ export default function ChefDashboard() {
             });
             const data = await res.json();
             if (data.success) {
-                const foundMap = new Map<string, any>(data.data.map((p: any) => [p.sicil_no, p]));
+                interface PersonnelLookup {
+                    sicil_no: string;
+                    fullName: string;
+                    gorevi: string;
+                }
+                const foundMap = new Map<string, PersonnelLookup>(
+                    data.data.map((p: PersonnelLookup) => [p.sicil_no, p])
+                );
                 return sicils.map(sicil => {
                     const found = foundMap.get(sicil);
                     return found
@@ -328,8 +335,8 @@ export default function ChefDashboard() {
                         : { sicil_no: sicil, fullName: "Bulunamadı", gorevi: "-", found: false };
                 });
             }
-        } catch (err) {
-            console.error("Lookup failed", err);
+        } catch {
+            // Personnel lookup failed
         }
         return sicils.map(sicil => ({ sicil_no: sicil, fullName: "?", gorevi: "-", found: false }));
     };

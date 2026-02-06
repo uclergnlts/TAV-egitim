@@ -75,8 +75,8 @@ export async function GET(request: NextRequest) {
                             break;
                     }
                 }
-            } catch (e) {
-                console.error("Failed to parse advanced filters:", e);
+            } catch {
+                // Invalid filter format, skip
             }
         }
 
@@ -117,8 +117,7 @@ export async function GET(request: NextRequest) {
                 limit
             }
         });
-    } catch (error) {
-        console.error("Personel list error:", error);
+    } catch {
         return NextResponse.json({ success: false, message: "Hata" }, { status: 500 });
     }
 }
@@ -170,9 +169,9 @@ export async function POST(request: NextRequest) {
             data: newPersonnel,
         });
 
-    } catch (error: any) {
-        console.error("Personel create error:", error);
-        if (error.message?.includes("UNIQUE")) {
+    } catch (error: unknown) {
+        const err = error as { message?: string };
+        if (err.message?.includes("UNIQUE")) {
             return NextResponse.json({ success: false, message: "Bu sicil numarası zaten kayıtlı" }, { status: 409 });
         }
         return NextResponse.json({ success: false, message: "Kayıt oluşturulamadı" }, { status: 500 });
@@ -229,9 +228,8 @@ export async function PUT(request: NextRequest) {
 
         return NextResponse.json({ success: true, message: "Personel güncellendi" });
 
-    } catch (error: any) {
-        console.error("Personel update error:", error);
-        return NextResponse.json({ success: false, message: "Güncelleme başarısız: " + error.message }, { status: 500 });
+    } catch {
+        return NextResponse.json({ success: false, message: "Güncelleme başarısız" }, { status: 500 });
     }
 }
 
@@ -278,8 +276,7 @@ export async function DELETE(request: NextRequest) {
 
         return NextResponse.json({ success: true, message: "Personel silindi (Pasife alındı)" });
 
-    } catch (error: any) {
-        console.error("Personel delete error:", error);
-        return NextResponse.json({ success: false, message: "Silme başarısız: " + error.message }, { status: 500 });
+    } catch {
+        return NextResponse.json({ success: false, message: "Silme başarısız" }, { status: 500 });
     }
 }

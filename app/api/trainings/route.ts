@@ -36,33 +36,43 @@ export async function GET() {
             .where(eq(trainings.isActive, true))
             .orderBy(trainings.code);
 
-        // Her eğitim için alt başlıkları getir
-        const result = await Promise.all(
-            trainingList.map(async (training) => {
-                const topics = await db
-                    .select({
-                        id: trainingTopics.id,
-                        title: trainingTopics.title,
-                        order_no: trainingTopics.orderNo,
-                    })
-                    .from(trainingTopics)
-                    .where(eq(trainingTopics.trainingId, training.id))
-                    .orderBy(trainingTopics.orderNo);
+        // Tüm topic'leri tek sorguda getir (N+1 sorunu çözümü)
+        const trainingIds = trainingList.map(t => t.id);
+        const allTopics = trainingIds.length > 0
+            ? await db
+                .select({
+                    id: trainingTopics.id,
+                    title: trainingTopics.title,
+                    order_no: trainingTopics.orderNo,
+                    trainingId: trainingTopics.trainingId,
+                })
+                .from(trainingTopics)
+                .orderBy(trainingTopics.orderNo)
+            : [];
 
-                return {
-                    ...training,
-                    has_topics: topics.length > 0,
-                    topics,
-                };
-            })
-        );
+        // Topic'leri training ID'ye göre grupla
+        const topicsByTrainingId = new Map<string, typeof allTopics>();
+        for (const topic of allTopics) {
+            const existing = topicsByTrainingId.get(topic.trainingId) || [];
+            existing.push(topic);
+            topicsByTrainingId.set(topic.trainingId, existing);
+        }
+
+        // Sonuçları birleştir
+        const result = trainingList.map((training) => {
+            const topics = topicsByTrainingId.get(training.id) || [];
+            return {
+                ...training,
+                has_topics: topics.length > 0,
+                topics: topics.map(({ trainingId, ...rest }) => rest),
+            };
+        });
 
         return NextResponse.json({
             success: true,
             data: result,
         });
-    } catch (error) {
-        console.error("Trainings list error:", error);
+    } catch {
         return NextResponse.json(
             { success: false, message: "Bir hata oluştu" },
             { status: 500 }
@@ -78,23 +88,15 @@ export async function POST(request: Request) {
         }
 
         const body = await request.json();
-        console.log("Creating training with body:", body);
 
         // Basic validation
         if (!body.code || !body.name || body.duration_min === undefined || body.duration_min === null) {
-            console.log("Validation failed: Missing fields", body);
             return NextResponse.json({ success: false, message: "Eksik bilgi: Kod, Ad ve Süre zorunludur" }, { status: 400 });
         }
 
-        let durationMin = 0;
-        try {
-            durationMin = typeof body.duration_min === 'string' ? parseInt(body.duration_min, 10) : Number(body.duration_min);
-        } catch (e) {
-            console.error("Duration parse error", e);
-        }
+        const durationMin = typeof body.duration_min === 'string' ? parseInt(body.duration_min, 10) : Number(body.duration_min);
 
         if (isNaN(durationMin)) {
-            console.log("Validation failed: Invalid duration", body.duration_min);
             return NextResponse.json({ success: false, message: "Geçersiz süre" }, { status: 400 });
         }
 
@@ -123,15 +125,14 @@ export async function POST(request: Request) {
             data: newTraining,
         });
 
-    } catch (error: any) {
-        console.error("Training create error:", error);
-
+    } catch (error: unknown) {
         // Handle unique constraint violation
-        if (error?.message?.includes("UNIQUE constraint failed: trainings.code")) {
+        const err = error as { message?: string };
+        if (err?.message?.includes("UNIQUE constraint failed: trainings.code")) {
             return NextResponse.json({ success: false, message: "Bu eğitim kodu zaten kullanılıyor" }, { status: 400 });
         }
 
-        return NextResponse.json({ success: false, message: "Kayıt başarısız: " + (error?.message || "Bilinmeyen hata") }, { status: 500 });
+        return NextResponse.json({ success: false, message: "Kayıt başarısız" }, { status: 500 });
     }
 }
 
@@ -181,8 +182,7 @@ export async function PUT(request: Request) {
             data: updatedTraining,
         });
 
-    } catch (error) {
-        console.error("Training update error:", error);
+    } catch {
         return NextResponse.json({ success: false, message: "Hata" }, { status: 500 });
     }
 }
@@ -225,8 +225,7 @@ export async function DELETE(request: Request) {
 
         return NextResponse.json({ success: true, message: "Eğitim silindi (Pasife alındı)" });
 
-    } catch (error) {
-        console.error("Training delete error:", error);
+    } catch {
         return NextResponse.json({ success: false, message: "Hata" }, { status: 500 });
     }
 }
