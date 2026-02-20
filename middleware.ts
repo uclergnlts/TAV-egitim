@@ -12,18 +12,17 @@ import { checkRateLimit, getClientIP, RateLimitPresets } from "./lib/rateLimit";
 let _jwtSecret: Uint8Array | null = null;
 const getJwtSecret = (): Uint8Array => {
     if (!_jwtSecret) {
-        if (!process.env.JWT_SECRET && process.env.NODE_ENV === "production") {
-            throw new Error("JWT_SECRET environment variable is required in production");
+        const secret = process.env.JWT_SECRET;
+        if (!secret) {
+            throw new Error("JWT_SECRET environment variable is required. Set it in .env file.");
         }
-        _jwtSecret = new TextEncoder().encode(
-            process.env.JWT_SECRET || "fallback-secret-key-for-development-only"
-        );
+        _jwtSecret = new TextEncoder().encode(secret);
     }
     return _jwtSecret;
 };
 
 // Korumasız rotalar (herkes erişebilir)
-const publicRoutes = ["/", "/login", "/api/auth/login"];
+const publicRoutes = ["/", "/login", "/api/auth/login", "/api/health"];
 
 // Sadece ADMIN erişebilir
 const adminOnlyRoutes = [

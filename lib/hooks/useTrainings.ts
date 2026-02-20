@@ -45,7 +45,7 @@ async function fetchTrainingsList(): Promise<TrainingListResponse> {
 }
 
 async function fetchTrainingById(id: string): Promise<{ success: boolean; data: Training }> {
-    const response = await fetch(`/api/trainings/${id}`);
+    const response = await fetch(`/api/trainings?id=${encodeURIComponent(id)}`);
     
     if (!response.ok) {
         throw new Error("Eğitim bilgisi alınamadı");
@@ -95,7 +95,7 @@ async function updateTraining(id: string, data: Partial<Training>): Promise<{ su
 }
 
 async function deleteTraining(id: string): Promise<{ success: boolean }> {
-    const response = await fetch(`/api/trainings/${id}`, {
+    const response = await fetch(`/api/trainings?id=${encodeURIComponent(id)}`, {
         method: "DELETE",
     });
 

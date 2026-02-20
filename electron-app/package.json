@@ -1,0 +1,89 @@
+{
+  "name": "tav-egitim-desktop",
+  "version": "1.0.0",
+  "description": "TAV Eğitim Sistemi - Masaüstü Uygulaması",
+  "main": "main.js",
+  "author": "TAV Eğitim",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "npm run build:next && electron-builder",
+    "build:next": "cd .. && npm run build",
+    "build:win": "npm run build:next && electron-builder --win",
+    "build:win:unsigned": "npm run build:next && electron-builder --win --publish never",
+    "dist": "npm run build:next && electron-builder --publish=never"
+  },
+  "build": {
+    "appId": "com.tav.egitim",
+    "productName": "TAV Eğitim Sistemi",
+    "directories": {
+      "output": "../dist",
+      "buildResources": "assets"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "../out/**/*",
+      "../.next/**/*",
+      "../node_modules/**/*",
+      "../package.json"
+    ],
+    "extraMetadata": {
+      "main": "electron-app/main.js"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.ico",
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "certificateFile": "assets/certificate.pfx",
+      "certificatePassword": "${CERT_PASSWORD}",
+      "signAndEditExecutable": true,
+      "signDlls": true,
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "runAfterFinish": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "TAV Eğitim Sistemi",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeader": "assets/header.bmp",
+      "installerSidebar": "assets/sidebar.bmp",
+      "deleteAppDataOnUninstall": false,
+      "perMachine": false
+    },
+    "portable": {
+      "artifactName": "${productName}-Portable-${version}.${ext}"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "tav-egitim",
+      "repo": "tav-egitim-desktop"
+    }
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1",
+    "electron-is-dev": "^2.0.0"
+  },
+  "dependencies": {}
+}

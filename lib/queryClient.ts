@@ -56,7 +56,8 @@ export const queryKeys = {
     trainings: {
         all: ["trainings"] as const,
         lists: () => [...queryKeys.trainings.all, "list"] as const,
-        list: (filters?: Record<string, unknown>) => [...queryKeys.trainings.lists(), filters] as const,
+        list: (filters?: Record<string, unknown>) =>
+            filters ? [...queryKeys.trainings.lists(), filters] as const : [...queryKeys.trainings.lists()] as const,
         details: () => [...queryKeys.trainings.all, "detail"] as const,
         detail: (id: string) => [...queryKeys.trainings.details(), id] as const,
         topics: (trainingId: string) => [...queryKeys.trainings.all, "topics", trainingId] as const,

@@ -130,6 +130,7 @@ export function FilterPanel({
             case "select":
                 return (
                     <select
+                        aria-label="Değer"
                         value={(value as string) || ""}
                         onChange={(e) => onChange(e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
@@ -146,6 +147,7 @@ export function FilterPanel({
             case "multiselect":
                 return (
                     <select
+                        aria-label="Değer"
                         multiple
                         value={(value as string[]) || []}
                         onChange={(e) => {
@@ -168,6 +170,7 @@ export function FilterPanel({
             case "boolean":
                 return (
                     <select
+                        aria-label="Değer"
                         value={String(value)}
                         onChange={(e) => onChange(e.target.value === "true")}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
@@ -180,6 +183,7 @@ export function FilterPanel({
             case "number":
                 return (
                     <input
+                        aria-label="Değer"
                         type="number"
                         value={(value as number) || ""}
                         onChange={(e) => onChange(e.target.value === "" ? "" : parseFloat(e.target.value))}
@@ -191,6 +195,7 @@ export function FilterPanel({
             case "date":
                 return (
                     <input
+                        aria-label="Değer"
                         type="date"
                         value={(value as string) || ""}
                         onChange={(e) => onChange(e.target.value)}
@@ -201,6 +206,7 @@ export function FilterPanel({
             default:
                 return (
                     <input
+                        aria-label="Değer"
                         type="text"
                         value={(value as string) || ""}
                         onChange={(e) => onChange(e.target.value)}
@@ -283,6 +289,7 @@ export function FilterPanel({
                                                     : String(filter.value)}
                                             </span>
                                             <button
+                                                aria-label="Filtreyi kaldır"
                                                 onClick={() => handleRemoveFilter(index)}
                                                 className="ml-1 text-blue-400 hover:text-blue-600"
                                             >

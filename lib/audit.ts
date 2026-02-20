@@ -39,7 +39,15 @@ export async function logAction(params: LogActionParams) {
         });
 
     } catch (error) {
-        // Audit log failures should not crash the app, but we should log it to console
-        console.error("AUDIT_LOG_ERROR:", error);
+        // Audit log failures should not crash the app
+        // Log with full context for debugging
+        console.error("AUDIT_LOG_ERROR:", {
+            timestamp: new Date().toISOString(),
+            action: params.actionType,
+            entity: params.entityType,
+            entityId: params.entityId,
+            userId: params.userId,
+            error: error instanceof Error ? error.message : String(error),
+        });
     }
 }

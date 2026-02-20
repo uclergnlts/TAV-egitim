@@ -55,12 +55,16 @@ export const personnel = sqliteTable(
         telefon: text("telefon"),
         dogumTarihi: text("dogum_tarihi"),
         adres: text("adres"),
+        email: text("email"),
 
         createdAt: text("created_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
         updatedAt: text("updated_at").default(sql`CURRENT_TIMESTAMP`).notNull(),
     },
     (table) => ({
         sicilNoIdx: uniqueIndex("personnel_sicil_no_idx").on(table.sicilNo),
+        fullNameIdx: index("idx_personnel_full_name").on(table.fullName),
+        grupIdx: index("idx_personnel_grup").on(table.grup),
+        durumuIdx: index("idx_personnel_durumu").on(table.personelDurumu),
     })
 );
 

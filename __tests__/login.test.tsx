@@ -21,7 +21,7 @@ describe('LoginPage', () => {
     it('renders login form correctly', () => {
         render(<LoginPage />)
 
-        expect(screen.getByText('TAV Eğitim Paneli')).toBeInTheDocument()
+        expect(screen.getByRole('heading', { name: /Eğitim Portalı/i })).toBeInTheDocument()
         expect(screen.getByLabelText('Sicil Numarası')).toBeInTheDocument()
         expect(screen.getByLabelText('Şifre')).toBeInTheDocument()
         expect(screen.getByRole('button', { name: /Giriş Yap/i })).toBeInTheDocument()

@@ -1,8 +1,8 @@
 /**
- * Seed Data Script - Turso/SQLite
- * Admin, Şef, Eğitmenler ve Örnek Eğitimler
- * 
- * Kullanım: npx tsx lib/db/seed.ts
+ * Seed Data Script - Turso LibSQL
+ * Admin, Sef, Egitmenler ve Ornek Egitimler
+ *
+ * Kullanim: npx tsx lib/db/seed.ts
  */
 
 import { createClient } from "@libsql/client";
@@ -10,17 +10,20 @@ import { drizzle } from "drizzle-orm/libsql";
 import { hash } from "bcryptjs";
 import { sql } from "drizzle-orm";
 import * as schema from "./schema";
+import "dotenv/config";
 
 async function seed() {
-    const url = process.env.TURSO_DATABASE_URL;
-    const authToken = process.env.TURSO_AUTH_TOKEN;
+    const tursoUrl = process.env.TURSO_DATABASE_URL;
+    const tursoAuthToken = process.env.TURSO_AUTH_TOKEN;
 
-    if (!url) {
-        console.error("❌ TURSO_DATABASE_URL is not defined");
-        process.exit(1);
+    if (!tursoUrl) {
+        throw new Error("TURSO_DATABASE_URL environment variable is required.");
     }
 
-    const client = createClient({ url, authToken });
+    const client = createClient({
+        url: tursoUrl,
+        ...(tursoAuthToken ? { authToken: tursoAuthToken } : {}),
+    });
     const db = drizzle(client, { schema });
 
     console.log("🌱 Starting seed...\n");

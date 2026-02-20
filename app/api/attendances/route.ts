@@ -308,8 +308,36 @@ export async function PUT(request: NextRequest) {
                 updateData.egitimAltBasligi = value || null;
                 break;
             case 'egitmen_adi':
-                // Eğitmen adı trainer tablosundan geliyor, snapshot olarak kaydediliyor
-                updateData.egitmenAdi = value;
+                if (!value) {
+                    updateData.trainerId = null;
+                    break;
+                }
+                const trainerByName = await db.query.trainers.findFirst({
+                    where: eq(trainers.fullName, String(value)),
+                });
+                if (!trainerByName) {
+                    return NextResponse.json(
+                        { success: false, message: "Egitmen bulunamadi" },
+                        { status: 400 }
+                    );
+                }
+                updateData.trainerId = trainerByName.id;
+                break;
+            case 'trainer_id':
+                if (!value) {
+                    updateData.trainerId = null;
+                    break;
+                }
+                const trainerById = await db.query.trainers.findFirst({
+                    where: eq(trainers.id, String(value)),
+                });
+                if (!trainerById) {
+                    return NextResponse.json(
+                        { success: false, message: "Egitmen bulunamadi" },
+                        { status: 400 }
+                    );
+                }
+                updateData.trainerId = trainerById.id;
                 break;
             case 'sonuc_belgesi_turu':
                 if (value === 'EGITIM_KATILIM_CIZELGESI' || value === 'SERTIFIKA') {
@@ -352,10 +380,12 @@ export async function PUT(request: NextRequest) {
         }
 
         // Year ve month'u başlangıç tarihinden hesapla (eğer başlama tarihi güncelleniyorsa)
+        // YYYY-MM-DD formatından direkt parse et (timezone sorunlarını önler)
         if (needsYearMonthUpdate && updateData.baslamaTarihi) {
-            const dateObj = new Date(updateData.baslamaTarihi);
-            updateData.year = dateObj.getFullYear();
-            updateData.month = dateObj.getMonth() + 1;
+            const dateStr = String(updateData.baslamaTarihi);
+            const [yearStr, monthStr] = dateStr.split("-");
+            updateData.year = parseInt(yearStr, 10);
+            updateData.month = parseInt(monthStr, 10);
         }
 
         // Güncelle
@@ -522,3 +552,6 @@ export async function DELETE(request: NextRequest) {
         );
     }
 }
+
+
+

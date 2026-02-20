@@ -10,7 +10,7 @@ import { eq } from "drizzle-orm";
 import { getSession } from "@/lib/auth";
 import { logAction } from "@/lib/audit";
 
-export async function GET() {
+export async function GET(request: Request) {
     try {
         // Oturum kontrolü
         const session = await getSession();
@@ -20,7 +20,26 @@ export async function GET() {
                 { status: 401 }
             );
         }
+        const { searchParams } = new URL(request.url);
+        const id = searchParams.get("id");
 
+        if (id) {
+            const training = await db.query.trainings.findFirst({
+                where: eq(trainings.id, id),
+            });
+
+            if (!training) {
+                return NextResponse.json(
+                    { success: false, message: "Egitim bulunamadi" },
+                    { status: 404 }
+                );
+            }
+
+            return NextResponse.json({
+                success: true,
+                data: training,
+            });
+        }
         // Aktif eğitimleri getir
         const trainingList = await db
             .select({
@@ -229,3 +248,4 @@ export async function DELETE(request: Request) {
         return NextResponse.json({ success: false, message: "Hata" }, { status: 500 });
     }
 }
+

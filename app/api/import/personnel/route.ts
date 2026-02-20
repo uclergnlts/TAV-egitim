@@ -23,6 +23,7 @@ interface PersonnelImportRow {
     telefon?: string;
     dogumTarihi?: string;
     adres?: string;
+    email?: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -63,13 +64,15 @@ export async function POST(request: NextRequest) {
         const results = {
             created: 0,
             updated: 0,
-            errors: [] as string[],
+            errors: [] as { row: number; message: string }[],
         };
 
+        let rowIndex = 0;
         for (const row of rows) {
+            rowIndex++;
             try {
                 if (!row.sicilNo || !row.fullName) {
-                    results.errors.push(`Satır geçersiz: Sicil No veya Ad Soyad eksik`);
+                    results.errors.push({ row: rowIndex, message: "Sicil No veya Ad Soyad eksik" });
                     continue;
                 }
 
@@ -92,6 +95,7 @@ export async function POST(request: NextRequest) {
                             telefon: row.telefon || existing.telefon,
                             dogumTarihi: row.dogumTarihi || existing.dogumTarihi,
                             adres: row.adres || existing.adres,
+                            email: row.email || existing.email,
                             updatedAt: new Date().toISOString()
                         })
                         .where(eq(personnel.id, existing.id));
@@ -110,11 +114,12 @@ export async function POST(request: NextRequest) {
                         telefon: row.telefon,
                         dogumTarihi: row.dogumTarihi,
                         adres: row.adres,
+                        email: row.email,
                     });
                     results.created++;
                 }
             } catch (err: any) {
-                results.errors.push(`${row.sicilNo}: ${err.message}`);
+                results.errors.push({ row: rowIndex, message: `${row.sicilNo}: ${err.message}` });
             }
         }
 

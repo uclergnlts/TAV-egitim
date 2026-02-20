@@ -1,7 +1,6 @@
 /**
- * Eğitim Toplu Import API
+ * Egitim Toplu Import API
  * POST /api/import/trainings
- * Excel'den eğitim ve alt başlık yükleme
  */
 
 import { NextResponse } from "next/server";
@@ -17,28 +16,50 @@ interface ImportTrainingRow {
     category?: string;
     default_location?: string;
     default_document_type?: string;
-    topics?: string; // Virgülle ayrılmış alt başlıklar
+    topics?: string;
+}
+
+function normalizeDocumentType(value?: string): "EGITIM_KATILIM_CIZELGESI" | "SERTIFIKA" | undefined {
+    if (!value) return undefined;
+    const s = value.toLowerCase();
+    if (s.includes("sertifika")) return "SERTIFIKA";
+    if (s.includes("katilim") || s.includes("katılım") || s.includes("cizelge") || s.includes("çizelge")) {
+        return "EGITIM_KATILIM_CIZELGESI";
+    }
+    if (value === "EGITIM_KATILIM_CIZELGESI" || value === "SERTIFIKA") return value;
+    return undefined;
 }
 
 export async function POST(request: Request) {
     try {
-        // Auth check
+        const { checkRateLimit, getClientIP, RateLimitPresets } = await import("@/lib/rateLimit");
+        const clientIP = getClientIP(request);
+        const rateLimitResult = checkRateLimit(`import:trainings:${clientIP}`, RateLimitPresets.export);
+
+        if (!rateLimitResult.allowed) {
+            return NextResponse.json(
+                { success: false, message: "Çok fazla import isteği. Lütfen bir süre bekleyin." },
+                {
+                    status: 429,
+                    headers: {
+                        "X-RateLimit-Limit": rateLimitResult.limit.toString(),
+                        "X-RateLimit-Remaining": rateLimitResult.remaining.toString(),
+                        "X-RateLimit-Reset": new Date(rateLimitResult.resetTime).toISOString(),
+                    },
+                }
+            );
+        }
+
         const session = await getSession();
         if (!session || session.role !== "ADMIN") {
-            return NextResponse.json(
-                { success: false, message: "Yetkisiz işlem" },
-                { status: 403 }
-            );
+            return NextResponse.json({ success: false, message: "Yetkisiz işlem" }, { status: 403 });
         }
 
         const body = await request.json();
         const rows: ImportTrainingRow[] = body.data;
 
         if (!rows || rows.length === 0) {
-            return NextResponse.json(
-                { success: false, message: "Veri bulunamadı" },
-                { status: 400 }
-            );
+            return NextResponse.json({ success: false, message: "Veri bulunamadı" }, { status: 400 });
         }
 
         let created = 0;
@@ -50,54 +71,51 @@ export async function POST(request: Request) {
             const row = rows[i];
 
             try {
-                // Validate required fields
-                if (!row.code || !row.name) {
+                const code = String(row.code ?? "").trim();
+                const name = String(row.name ?? "").trim();
+                if (!code || !name) {
                     errors.push({ row: i + 1, message: "Kod ve Ad zorunludur" });
                     continue;
                 }
 
-                const durationMin = typeof row.duration_min === 'string'
+                const durationMin = typeof row.duration_min === "string"
                     ? parseInt(row.duration_min, 10)
                     : (row.duration_min || 60);
 
                 if (isNaN(durationMin)) {
-                    errors.push({ row: i + 1, message: "Geçersiz süre değeri" });
+                    errors.push({ row: i + 1, message: "Gecersiz sure degeri" });
                     continue;
                 }
 
-                // Normalize category
                 let category = (row.category || "TEMEL").toUpperCase();
-                if (!["TEMEL", "TAZELEME", "DIGER"].includes(category)) {
+                if (!(["TEMEL", "TAZELEME", "DIGER"] as const).includes(category as "TEMEL" | "TAZELEME" | "DIGER")) {
                     category = "TEMEL";
                 }
 
-                // Check if training exists
                 const existing = await db
                     .select()
                     .from(trainings)
-                    .where(eq(trainings.code, row.code))
+                    .where(eq(trainings.code, code))
                     .get();
 
                 let trainingId: string;
 
                 if (existing) {
-                    // Update existing
                     await db.update(trainings)
                         .set({
-                            name: row.name,
-                            durationMin: durationMin,
+                            name,
+                            durationMin,
                             category: category as "TEMEL" | "TAZELEME" | "DIGER",
                             defaultLocation: row.default_location || existing.defaultLocation,
-                            defaultDocumentType: row.default_document_type as any || existing.defaultDocumentType,
+                            defaultDocumentType: normalizeDocumentType(row.default_document_type) || existing.defaultDocumentType,
                             isActive: true,
-                            updatedAt: new Date().toISOString()
+                            updatedAt: new Date().toISOString(),
                         })
                         .where(eq(trainings.id, existing.id));
 
                     trainingId = existing.id;
                     updated++;
 
-                    // Audit log
                     await logAction({
                         userId: session.userId,
                         userRole: "ADMIN",
@@ -105,84 +123,82 @@ export async function POST(request: Request) {
                         entityType: "training",
                         entityId: trainingId,
                         oldValue: existing,
-                        newValue: { ...row, durationMin, category }
+                        newValue: { ...row, code, name, durationMin, category },
                     });
                 } else {
-                    // Create new
                     const [newTraining] = await db.insert(trainings).values({
-                        code: row.code,
-                        name: row.name,
-                        durationMin: durationMin,
+                        code,
+                        name,
+                        durationMin,
                         category: category as "TEMEL" | "TAZELEME" | "DIGER",
                         defaultLocation: row.default_location || null,
-                        defaultDocumentType: row.default_document_type as any || null,
-                        isActive: true
+                        defaultDocumentType: normalizeDocumentType(row.default_document_type) || null,
+                        isActive: true,
                     }).returning();
 
                     trainingId = newTraining.id;
                     created++;
 
-                    // Audit log
                     await logAction({
                         userId: session.userId,
                         userRole: "ADMIN",
                         actionType: "CREATE",
                         entityType: "training",
                         entityId: trainingId,
-                        newValue: newTraining
+                        newValue: newTraining,
                     });
                 }
 
-                // Handle topics (alt başlıklar)
                 if (row.topics && row.topics.trim()) {
-                    const topicTitles = row.topics.split(",").map(t => t.trim()).filter(t => t);
+                    const topicTitles = row.topics
+                        .split(/[;,]/)
+                        .map((t) => t.trim())
+                        .filter(Boolean);
+
+                    const existingTopicRows = await db
+                        .select()
+                        .from(trainingTopics)
+                        .where(eq(trainingTopics.trainingId, trainingId))
+                        .all();
+
+                    const existingTopicSet = new Set(existingTopicRows.map((t) => t.title));
 
                     for (let j = 0; j < topicTitles.length; j++) {
                         const title = topicTitles[j];
+                        if (existingTopicSet.has(title)) continue;
 
-                        // Check if topic already exists
-                        const existingTopic = await db
-                            .select()
-                            .from(trainingTopics)
-                            .where(eq(trainingTopics.trainingId, trainingId))
-                            .all();
-
-                        const topicExists = existingTopic.some(t => t.title === title);
-
-                        if (!topicExists) {
-                            await db.insert(trainingTopics).values({
-                                trainingId: trainingId,
-                                title: title,
-                                orderNo: j + 1,
-                                isActive: true
-                            });
-                            topicsCreated++;
-                        }
+                        await db.insert(trainingTopics).values({
+                            trainingId,
+                            title,
+                            orderNo: j + 1,
+                            isActive: true,
+                        });
+                        topicsCreated++;
+                        existingTopicSet.add(title);
                     }
                 }
-
-            } catch (err: any) {
-                console.error(`Row ${i + 1} error:`, err);
-                errors.push({ row: i + 1, message: err?.message || "Bilinmeyen hata" });
+            } catch (error) {
+                const message = error instanceof Error ? error.message : "Bilinmeyen hata";
+                errors.push({ row: i + 1, message });
             }
         }
+
+        await logAction({
+            userId: session.userId,
+            userRole: "ADMIN",
+            actionType: "IMPORT",
+            entityType: "import",
+            entityId: `TRAINING-IMPORT-${Date.now()}`,
+            newValue: { created, updated, topicsCreated, errorCount: errors.length },
+        });
 
         return NextResponse.json({
             success: true,
             message: `Import tamamlandı: ${created} yeni, ${updated} güncelleme, ${topicsCreated} alt başlık`,
-            data: {
-                created,
-                updated,
-                topicsCreated,
-                errors
-            }
+            data: { created, updated, topicsCreated, errors },
         });
-
-    } catch (error: any) {
-        console.error("Training import error:", error);
-        return NextResponse.json(
-            { success: false, message: "Import hatası: " + (error?.message || "Bilinmeyen hata") },
-            { status: 500 }
-        );
+    } catch (error) {
+        const message = error instanceof Error ? error.message : "Bilinmeyen hata";
+        return NextResponse.json({ success: false, message: `Import hatası: ${message}` }, { status: 500 });
     }
 }

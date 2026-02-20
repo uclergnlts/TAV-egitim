@@ -19,11 +19,24 @@ export const sicilNoSchema = z
     .max(20, "Sicil numarası en fazla 20 karakter olabilir")
     .regex(/^[A-Z0-9]+$/, "Sicil numarası sadece büyük harf ve rakam içerebilir");
 
-/** TC Kimlik numarası (11 hane, sadece rakam) */
+/** TC Kimlik numarası (11 hane, algoritmik doğrulama) */
 export const tcKimlikNoSchema = z
     .string()
     .length(11, "TC Kimlik numarası 11 haneli olmalı")
-    .regex(/^[0-9]+$/, "TC Kimlik numarası sadece rakam içerebilir");
+    .regex(/^[0-9]+$/, "TC Kimlik numarası sadece rakam içerebilir")
+    .refine((val) => {
+        // İlk hane 0 olamaz
+        if (val[0] === "0") return false;
+        const digits = val.split("").map(Number);
+        // 10. hane kontrolü: ((d1+d3+d5+d7+d9)*7 - (d2+d4+d6+d8)) % 10 === d10
+        const oddSum = digits[0] + digits[2] + digits[4] + digits[6] + digits[8];
+        const evenSum = digits[1] + digits[3] + digits[5] + digits[7];
+        if ((oddSum * 7 - evenSum) % 10 !== digits[9]) return false;
+        // 11. hane kontrolü: (d1+d2+...+d10) % 10 === d11
+        const totalSum = digits.slice(0, 10).reduce((a, b) => a + b, 0);
+        if (totalSum % 10 !== digits[10]) return false;
+        return true;
+    }, "Geçersiz TC Kimlik numarası");
 
 /** Telefon numarası */
 export const phoneSchema = z
@@ -86,6 +99,7 @@ export const createPersonnelSchema = z.object({
     telefon: phoneSchema.optional().or(z.literal("")),
     dogumTarihi: dateSchema.optional().or(z.literal("")),
     adres: z.string().max(500).optional().or(z.literal("")),
+    email: z.string().email().optional().or(z.literal("")),
 });
 
 /** Personel güncelleme şeması */
@@ -101,6 +115,7 @@ export const updatePersonnelSchema = z.object({
     telefon: phoneSchema.optional().or(z.literal("")).nullable(),
     dogumTarihi: dateSchema.optional().or(z.literal("")).nullable(),
     adres: z.string().max(500).optional().or(z.literal("")).nullable(),
+    email: z.string().email().optional().or(z.literal("")).nullable(),
 });
 
 /** Personel listeleme sorgu şeması */
@@ -241,6 +256,7 @@ export const personnelImportRowSchema = z.object({
     telefon: phoneSchema.optional(),
     dogumTarihi: dateSchema.optional(),
     adres: z.string().max(500).optional(),
+    email: z.string().email().optional(),
 });
 
 /** Katılım import satır şeması */

@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run dev:*)",
+      "Bash(npm run build:*)",
+      "Bash(git add:*)",
+      "Bash(if not exist \"C:\\\\Users\\\\ucler\\\\OneDrive\\\\Masaüstü\\\\TAV-egitim\\\\scripts\" mkdir \"C:\\\\Users\\\\ucler\\\\OneDrive\\\\Masaüstü\\\\TAV-egitim\\\\scripts\")",
+      "Bash(npx --yes better-sqlite3-cli:*)",
+      "Bash(node -e:*)",
+      "Bash(npx --yes kill-port:*)",
+      "Bash(taskkill:*)",
+      "Bash(curl:*)",
+      "Bash(npx next build:*)"
+    ]
+  }
+}

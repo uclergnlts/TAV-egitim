@@ -39,7 +39,8 @@ export default function PersonnelModal({
         cinsiyet: "",
         telefon: "",
         dogumTarihi: "",
-        adres: ""
+        adres: "",
+        email: ""
     };
 
     const [formData, setFormData] = useState(initialForm);
@@ -59,7 +60,8 @@ export default function PersonnelModal({
                 cinsiyet: editData.cinsiyet || "",
                 telefon: editData.telefon || "",
                 dogumTarihi: editData.dogumTarihi || "",
-                adres: editData.adres || ""
+                adres: editData.adres || "",
+                email: editData.email || ""
             });
         } else {
             // New record - reset to initial
@@ -297,6 +299,16 @@ export default function PersonnelModal({
                                         value={formData.telefon}
                                         onChange={e => handleChange("telefon", e.target.value)}
                                         placeholder="05XXXXXXXXX"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1.5">E-posta</label>
+                                    <input
+                                        type="email"
+                                        value={formData.email}
+                                        onChange={e => handleChange("email", e.target.value)}
+                                        placeholder="ornek@email.com"
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all"
                                     />
                                 </div>

@@ -75,29 +75,19 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { sicil_no, full_name, role, password } = body;
 
-        // Validation
-        if (!sicil_no || !full_name || !role || !password) {
+        // Zod validation
+        const { createUserSchema } = await import("@/lib/validation");
+        const parsed = createUserSchema.safeParse(body);
+        if (!parsed.success) {
+            const firstError = parsed.error.issues[0]?.message || "Geçersiz veri";
             return NextResponse.json(
-                { success: false, message: "Tüm alanlar zorunludur" },
+                { success: false, message: firstError },
                 { status: 400 }
             );
         }
 
-        if (!["CHEF", "ADMIN"].includes(role)) {
-            return NextResponse.json(
-                { success: false, message: "Geçersiz rol" },
-                { status: 400 }
-            );
-        }
-
-        if (password.length < 4) {
-            return NextResponse.json(
-                { success: false, message: "Şifre en az 4 karakter olmalı" },
-                { status: 400 }
-            );
-        }
+        const { sicil_no, full_name, role, password } = parsed.data;
 
         // Check if sicil_no already exists
         const existing = await db.select().from(users).where(eq(users.sicilNo, sicil_no)).limit(1);

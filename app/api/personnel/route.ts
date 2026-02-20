@@ -18,6 +18,21 @@ export async function GET(request: NextRequest) {
         }
 
         const searchParams = request.nextUrl.searchParams;
+        const id = searchParams.get("id");
+
+        if (id) {
+            const person = await db.select().from(personnel).where(eq(personnel.id, id)).get();
+
+            if (!person) {
+                return NextResponse.json({ success: false, message: "Personel bulunamadi" }, { status: 404 });
+            }
+
+            return NextResponse.json({
+                success: true,
+                data: person,
+            });
+        }
+
         const page = parseInt(searchParams.get("page") || "1");
         const limit = parseInt(searchParams.get("limit") || "50");
         const query = searchParams.get("query") || "";
@@ -36,42 +51,57 @@ export async function GET(request: NextRequest) {
             ));
         }
 
-        // Parse and apply advanced filters
+        // Parse and apply advanced filters (whitelist approach)
+        const ALLOWED_FILTER_FIELDS = [
+            "sicilNo", "fullName", "tcKimlikNo", "gorevi",
+            "projeAdi", "grup", "personelDurumu", "cinsiyet", "email"
+        ] as const;
+        type AllowedField = typeof ALLOWED_FILTER_FIELDS[number];
+        const ALLOWED_OPERATORS = ["eq", "ne", "contains", "startsWith", "endsWith", "gt", "gte", "lt", "lte"];
+
         if (advancedFiltersParam) {
             try {
                 const advancedFilters = JSON.parse(advancedFiltersParam);
+                if (!Array.isArray(advancedFilters)) throw new Error("invalid");
+
                 for (const filter of advancedFilters) {
                     const { field, operator, value } = filter;
-                    
+
                     if (!value && value !== false && value !== 0) continue;
+                    if (!ALLOWED_FILTER_FIELDS.includes(field as AllowedField)) continue;
+                    if (!ALLOWED_OPERATORS.includes(operator)) continue;
+
+                    // Sanitize value: only allow string/number, max 200 chars
+                    const safeValue = String(value).slice(0, 200);
+                    const col = personnel[field as AllowedField];
 
                     switch (operator) {
                         case "eq":
-                            filters.push(eq(personnel[field as keyof typeof personnel] as any, value));
+                            filters.push(eq(col as any, safeValue));
                             break;
                         case "ne":
-                            filters.push(sql`${personnel[field as keyof typeof personnel]} != ${value}`);
+                            filters.push(sql`${col} != ${safeValue}`);
                             break;
                         case "contains":
-                            filters.push(like(personnel[field as keyof typeof personnel] as any, `%${value}%`));
+                            filters.push(like(col as any, `%${safeValue}%`));
                             break;
                         case "startsWith":
-                            filters.push(like(personnel[field as keyof typeof personnel] as any, `${value}%`));
+                            filters.push(like(col as any, `${safeValue}%`));
                             break;
                         case "endsWith":
-                            filters.push(like(personnel[field as keyof typeof personnel] as any, `%${value}`));
+                            filters.push(like(col as any, `%${safeValue}`));
                             break;
                         case "gt":
-                            filters.push(sql`${personnel[field as keyof typeof personnel]} > ${value}`);
+                            filters.push(sql`${col} > ${safeValue}`);
                             break;
                         case "gte":
-                            filters.push(sql`${personnel[field as keyof typeof personnel]} >= ${value}`);
+                            filters.push(sql`${col} >= ${safeValue}`);
                             break;
                         case "lt":
-                            filters.push(sql`${personnel[field as keyof typeof personnel]} < ${value}`);
+                            filters.push(sql`${col} < ${safeValue}`);
                             break;
                         case "lte":
-                            filters.push(sql`${personnel[field as keyof typeof personnel]} <= ${value}`);
+                            filters.push(sql`${col} <= ${safeValue}`);
                             break;
                     }
                 }
@@ -152,6 +182,7 @@ export async function POST(request: NextRequest) {
             telefon: data.telefon,
             dogumTarihi: data.dogumTarihi,
             adres: data.adres,
+            email: data.email,
         }).returning();
 
         // Audit Log
@@ -206,12 +237,14 @@ export async function PUT(request: NextRequest) {
             telefon: body.telefon,
             dogumTarihi: body.dogumTarihi,
             adres: body.adres,
+            email: body.email,
             updatedAt: new Date().toISOString()
         };
 
-        await db.update(personnel)
+        const [updatedPersonnel] = await db.update(personnel)
             .set(updateData)
-            .where(eq(personnel.id, body.id));
+            .where(eq(personnel.id, body.id))
+            .returning();
 
         // Audit Log
         if (oldData) {
@@ -222,11 +255,15 @@ export async function PUT(request: NextRequest) {
                 entityType: "personnel",
                 entityId: body.id,
                 oldValue: oldData,
-                newValue: updateData
+                newValue: updatedPersonnel ?? updateData
             });
         }
 
-        return NextResponse.json({ success: true, message: "Personel güncellendi" });
+        return NextResponse.json({
+            success: true,
+            message: "Personel guncellendi",
+            data: updatedPersonnel,
+        });
 
     } catch {
         return NextResponse.json({ success: false, message: "Güncelleme başarısız" }, { status: 500 });

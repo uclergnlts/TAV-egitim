@@ -34,6 +34,10 @@ export async function POST(req: Request) {
             return NextResponse.json({ success: false, message: "Yetkisiz erişim" }, { status: 401 });
         }
 
+        if (session.role !== "CHEF" && session.role !== "ADMIN") {
+            return NextResponse.json({ success: false, message: "Bu islem icin yetkiniz yok" }, { status: 403 });
+        }
+
         const body = await req.json();
 
         // Zod Validation

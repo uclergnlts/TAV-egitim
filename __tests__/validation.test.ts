@@ -38,7 +38,7 @@ describe("Validation Schemas", () => {
 
     describe("tcKimlikNoSchema", () => {
         it("should validate valid TC Kimlik numbers", () => {
-            const result = tcKimlikNoSchema.safeParse("12345678901");
+            const result = tcKimlikNoSchema.safeParse("10000000146");
             expect(result.success).toBe(true);
         });
 
@@ -83,7 +83,7 @@ describe("Validation Schemas", () => {
             const result = createPersonnelSchema.safeParse({
                 sicilNo: "PER001",
                 fullName: "John Doe",
-                tcKimlikNo: "12345678901",
+                tcKimlikNo: "10000000146",
                 gorevi: "Security",
                 projeAdi: "TAV ESB",
                 grup: "Team A",
@@ -107,7 +107,7 @@ describe("Validation Schemas", () => {
             const result = createPersonnelSchema.safeParse({
                 sicilNo: "PER001",
                 fullName: "John Doe",
-                tcKimlikNo: "12345678901",
+                tcKimlikNo: "10000000146",
                 gorevi: "Security",
                 projeAdi: "TAV ESB",
                 grup: "Team A",

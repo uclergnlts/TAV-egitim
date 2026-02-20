@@ -10,6 +10,7 @@ import { eq, and } from "drizzle-orm";
 import { getSession } from "@/lib/auth";
 import { logAction } from "@/lib/audit";
 import { getYear, getMonth } from "@/lib/utils";
+import { checkRateLimit, getClientIP, RateLimitPresets } from "@/lib/rateLimit";
 
 interface AttendanceImportRow {
     sicilNo: string;
@@ -24,8 +25,95 @@ interface AttendanceImportRow {
     egitmenSicil?: string;
 }
 
+interface ImportError {
+    row: number;
+    message: string;
+}
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_RE = /^\d{2}:\d{2}$/;
+
+function normalizeDate(value: string | undefined): string {
+    if (!value) return "";
+    const s = String(value).trim();
+    if (DATE_RE.test(s)) return s;
+    const m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+    if (!m) return "";
+    
+    let day = parseInt(m[1]);
+    let month = parseInt(m[2]);
+    let year = parseInt(m[3]);
+
+    // Handle corrupted year format (e.g., 6024 -> 2024, 6025 -> 2025)
+    if (year >= 6000 && year <= 6999) {
+        year = year - 4000; // 6024 -> 2024, 6025 -> 2025
+    }
+
+    // Handle invalid day (0 or > 31)
+    if (day === 0 || day > 31) {
+        day = 1; // Default to 1st of month
+    }
+
+    // Handle invalid month (0 or > 12)
+    if (month === 0 || month > 12) {
+        month = 1; // Default to January
+    }
+
+    const d = String(day).padStart(2, "0");
+    const mo = String(month).padStart(2, "0");
+    const y = String(year);
+    return `${y}-${mo}-${d}`;
+}
+
+function normalizeTime(value: string | undefined, fallback: string): string {
+    if (!value) return fallback;
+    const s = String(value).trim();
+    if (TIME_RE.test(s)) return s;
+    const m = s.match(/^(\d{1,2}):(\d{2})/);
+    if (!m) return fallback;
+    return `${m[1].padStart(2, "0")}:${m[2]}`;
+}
+
+function normalizeIcDis(value: string | undefined): "IC" | "DIS" {
+    const s = (value ?? "").toLowerCase();
+    if (s.includes("dis") || s.includes("dış") || s === "d") {
+        return "DIS";
+    }
+    return "IC";
+}
+
+function normalizeDocumentType(value: string | undefined): "EGITIM_KATILIM_CIZELGESI" | "SERTIFIKA" | undefined {
+    if (!value) return undefined;
+    const s = value.toLowerCase();
+    if (s.includes("sertifika")) return "SERTIFIKA";
+    if (s.includes("katilim") || s.includes("katılım") || s.includes("cizelge") || s.includes("çizelge")) {
+        return "EGITIM_KATILIM_CIZELGESI";
+    }
+    if (value === "EGITIM_KATILIM_CIZELGESI" || value === "SERTIFIKA") {
+        return value;
+    }
+    return undefined;
+}
+
 export async function POST(request: NextRequest) {
     try {
+        const clientIP = getClientIP(request);
+        const rateLimitResult = checkRateLimit(`import:attendance:${clientIP}`, RateLimitPresets.export);
+
+        if (!rateLimitResult.allowed) {
+            return NextResponse.json(
+                { success: false, message: "Çok fazla import isteği. Lütfen bir süre bekleyin." },
+                {
+                    status: 429,
+                    headers: {
+                        "X-RateLimit-Limit": rateLimitResult.limit.toString(),
+                        "X-RateLimit-Remaining": rateLimitResult.remaining.toString(),
+                        "X-RateLimit-Reset": new Date(rateLimitResult.resetTime).toISOString(),
+                    },
+                }
+            );
+        }
+
         const session = await getSession();
         if (!session || session.role !== "ADMIN") {
             return NextResponse.json({ success: false, message: "Yetkisiz işlem" }, { status: 403 });
@@ -41,40 +129,49 @@ export async function POST(request: NextRequest) {
         const results = {
             created: 0,
             skipped: 0,
-            errors: [] as string[],
+            errors: [] as ImportError[],
         };
 
-        for (const row of rows) {
+        for (let i = 0; i < rows.length; i++) {
+            const rowNo = i + 1;
+            const row = rows[i];
+
             try {
-                if (!row.sicilNo || !row.egitimKodu || !row.baslamaTarihi) {
-                    results.errors.push(`Geçersiz satır: Sicil No, Eğitim Kodu veya Başlama Tarihi eksik`);
+                const sicilNo = String(row.sicilNo ?? "").trim();
+                const egitimKodu = String(row.egitimKodu ?? "").trim();
+                const baslamaTarihi = normalizeDate(row.baslamaTarihi);
+                const bitisTarihi = normalizeDate(row.bitisTarihi) || baslamaTarihi;
+                const baslamaSaati = normalizeTime(row.baslamaSaati, "09:00");
+                const bitisSaati = normalizeTime(row.bitisSaati, "17:00");
+
+                if (!sicilNo || !egitimKodu || !baslamaTarihi) {
+                    results.errors.push({ row: rowNo, message: "Sicil No, Egitim Kodu veya Baslama Tarihi eksik/gecersiz" });
                     continue;
                 }
 
-                // Find Personnel
                 const personelData = await db.query.personnel.findFirst({
-                    where: eq(personnel.sicilNo, row.sicilNo.toString().trim()),
+                    where: eq(personnel.sicilNo, sicilNo),
                 });
-
                 if (!personelData) {
-                    results.errors.push(`${row.sicilNo}: Personel bulunamadı`);
+                    results.errors.push({ row: rowNo, message: `${sicilNo}: Personel bulunamadi` });
                     continue;
                 }
 
-                // Find Training
                 const trainingData = await db.query.trainings.findFirst({
-                    where: eq(trainings.code, row.egitimKodu.toString().trim()),
+                    where: eq(trainings.code, egitimKodu),
                 });
-
                 if (!trainingData) {
-                    results.errors.push(`${row.sicilNo}: Eğitim kodu (${row.egitimKodu}) bulunamadı`);
+                    results.errors.push({ row: rowNo, message: `${sicilNo}: Egitim kodu (${egitimKodu}) bulunamadi` });
                     continue;
                 }
 
-                const year = getYear(row.baslamaTarihi);
-                const month = getMonth(row.baslamaTarihi);
+                const year = getYear(baslamaTarihi);
+                const month = getMonth(baslamaTarihi);
+                if (!Number.isFinite(year) || !Number.isFinite(month)) {
+                    results.errors.push({ row: rowNo, message: `${sicilNo}: Tarih formati gecersiz` });
+                    continue;
+                }
 
-                // Check Duplicate
                 const existingAttendance = await db.query.attendances.findFirst({
                     where: and(
                         eq(attendances.personelId, personelData.id),
@@ -82,26 +179,29 @@ export async function POST(request: NextRequest) {
                         eq(attendances.year, year)
                     ),
                 });
-
                 if (existingAttendance) {
                     results.skipped++;
                     continue;
                 }
 
-                // Find Trainer (optional)
-                let trainerId = null;
-                if (row.egitmenSicil) {
+                let trainerId: string | null = null;
+                const trainerSicil = String(row.egitmenSicil ?? "").trim();
+                if (trainerSicil) {
                     const trainerData = await db.query.trainers.findFirst({
-                        where: eq(trainers.sicilNo, row.egitmenSicil.toString().trim()),
+                        where: eq(trainers.sicilNo, trainerSicil),
                     });
                     if (trainerData) trainerId = trainerData.id;
                 }
 
-                // Insert
+                const normalizedDocType =
+                    normalizeDocumentType(row.sonucBelgesiTuru) ||
+                    trainingData.defaultDocumentType ||
+                    "EGITIM_KATILIM_CIZELGESI";
+
                 await db.insert(attendances).values({
                     personelId: personelData.id,
                     trainingId: trainingData.id,
-                    trainerId: trainerId,
+                    trainerId,
 
                     sicilNo: personelData.sicilNo,
                     adSoyad: personelData.fullName,
@@ -113,15 +213,15 @@ export async function POST(request: NextRequest) {
 
                     egitimKodu: trainingData.code,
 
-                    baslamaTarihi: row.baslamaTarihi,
-                    bitisTarihi: row.bitisTarihi || row.baslamaTarihi,
-                    baslamaSaati: row.baslamaSaati || "09:00",
-                    bitisSaati: row.bitisSaati || "17:00",
+                    baslamaTarihi,
+                    bitisTarihi,
+                    baslamaSaati,
+                    bitisSaati,
 
                     egitimSuresiDk: trainingData.durationMin,
                     egitimYeri: row.egitimYeri || trainingData.defaultLocation || "Bilinmiyor",
-                    icDisEgitim: (row.icDisEgitim as any) || "IC",
-                    sonucBelgesiTuru: (row.sonucBelgesiTuru || trainingData.defaultDocumentType || "EGITIM_KATILIM_CIZELGESI") as "EGITIM_KATILIM_CIZELGESI" | "SERTIFIKA",
+                    icDisEgitim: normalizeIcDis(row.icDisEgitim),
+                    sonucBelgesiTuru: normalizedDocType,
 
                     veriGirenSicil: session.sicilNo,
                     veriGirenAdSoyad: session.fullName,
@@ -131,13 +231,12 @@ export async function POST(request: NextRequest) {
                 });
 
                 results.created++;
-
-            } catch (err: any) {
-                results.errors.push(`${row.sicilNo}: ${err.message}`);
+            } catch (error) {
+                const message = error instanceof Error ? error.message : "Bilinmeyen hata";
+                results.errors.push({ row: rowNo, message });
             }
         }
 
-        // Log Import Action
         await logAction({
             userId: session.userId,
             userRole: "ADMIN",
@@ -149,12 +248,12 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({
             success: true,
-            message: `${results.created} kayıt oluşturuldu, ${results.skipped} kayıt atlandı (daha önce girilmiş).`,
-            data: results
+            message: `${results.created} kayıt oluşturuldu, ${results.skipped} kayıt atlandı.`,
+            data: results,
         });
-
-    } catch (error: any) {
-        console.error("Attendance import error:", error);
-        return NextResponse.json({ success: false, message: "Import hatası: " + error.message }, { status: 500 });
+    } catch (error) {
+        const message = error instanceof Error ? error.message : "Bilinmeyen hata";
+        return NextResponse.json({ success: false, message: `Import hatası: ${message}` }, { status: 500 });
     }
 }
+

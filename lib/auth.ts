@@ -13,12 +13,11 @@ import { compare } from "bcryptjs";
 let _jwtSecret: Uint8Array | null = null;
 const getJwtSecret = (): Uint8Array => {
     if (!_jwtSecret) {
-        if (!process.env.JWT_SECRET && process.env.NODE_ENV === "production") {
-            throw new Error("JWT_SECRET environment variable is required in production");
+        const secret = process.env.JWT_SECRET;
+        if (!secret) {
+            throw new Error("JWT_SECRET environment variable is required. Set it in .env file.");
         }
-        _jwtSecret = new TextEncoder().encode(
-            process.env.JWT_SECRET || "fallback-secret-key-for-development-only"
-        );
+        _jwtSecret = new TextEncoder().encode(secret);
     }
     return _jwtSecret;
 };
@@ -124,10 +123,11 @@ export async function login(
                 role: user.role,
             },
         };
-    } catch {
+    } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
         return {
             success: false,
-            message: "Bir hata oluştu. Lütfen tekrar deneyin.",
+            message: "DEBUG: " + msg,
         };
     }
 }

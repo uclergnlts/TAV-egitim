@@ -20,6 +20,7 @@ interface Personnel {
     telefon?: string;
     dogumTarihi?: string;
     adres?: string;
+    email?: string;
     createdAt: string;
     updatedAt: string;
 }
@@ -67,7 +68,7 @@ async function fetchPersonnelList(filters: PersonnelFilters): Promise<PersonnelL
 }
 
 async function fetchPersonnelById(id: string): Promise<{ success: boolean; data: Personnel }> {
-    const response = await fetch(`/api/personnel/${id}`);
+    const response = await fetch(`/api/personnel?id=${encodeURIComponent(id)}`);
     
     if (!response.ok) {
         throw new Error("Personel bilgisi alınamadı");
@@ -92,10 +93,10 @@ async function createPersonnel(data: Partial<Personnel>): Promise<{ success: boo
 }
 
 async function updatePersonnel(id: string, data: Partial<Personnel>): Promise<{ success: boolean; data: Personnel }> {
-    const response = await fetch(`/api/personnel/${id}`, {
+    const response = await fetch("/api/personnel", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ id, ...data }),
     });
 
     if (!response.ok) {
@@ -107,7 +108,7 @@ async function updatePersonnel(id: string, data: Partial<Personnel>): Promise<{ 
 }
 
 async function deletePersonnel(id: string): Promise<{ success: boolean }> {
-    const response = await fetch(`/api/personnel/${id}`, {
+    const response = await fetch(`/api/personnel?id=${encodeURIComponent(id)}`, {
         method: "DELETE",
     });
 
