@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
             const person = await db.select().from(personnel).where(eq(personnel.id, id)).get();
 
             if (!person) {
-                return NextResponse.json({ success: false, message: "Personel bulunamadi" }, { status: 404 });
+                return NextResponse.json({ success: false, message: "Personel bulunamadı" }, { status: 404 });
             }
 
             return NextResponse.json({
@@ -261,7 +261,7 @@ export async function PUT(request: NextRequest) {
 
         return NextResponse.json({
             success: true,
-            message: "Personel guncellendi",
+            message: "Personel güncellendi",
             data: updatedPersonnel,
         });
 

@@ -124,10 +124,10 @@ export async function login(
             },
         };
     } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
+        console.error("Login error:", err);
         return {
             success: false,
-            message: "DEBUG: " + msg,
+            message: "Giris islemi su anda tamamlanamiyor",
         };
     }
 }
@@ -215,3 +215,4 @@ export async function isChef(): Promise<boolean> {
     const session = await getSession();
     return session?.role === "CHEF";
 }
+

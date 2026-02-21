@@ -134,6 +134,16 @@ export async function POST(request: NextRequest) {
                     results.errors.push(`${cleanSicil}: Personel PASİF durumda, eğitim atanamaz.`);
                     continue;
                 }
+                if (!personelData.tcKimlikNo?.trim()) {
+                    results.error_count++;
+                    results.errors.push(`${cleanSicil}: Personel TC Kimlik No eksik`);
+                    continue;
+                }
+                if (!personelData.grup?.trim()) {
+                    results.error_count++;
+                    results.errors.push(`${cleanSicil}: Personel Çalışma Grubu eksik`);
+                    continue;
+                }
 
                 // Duplicate kontrolü
                 const existingAttendance = await db.query.attendances.findFirst({
@@ -160,12 +170,19 @@ export async function POST(request: NextRequest) {
                     sicilNo: personelData.sicilNo,
                     adSoyad: personelData.fullName,
                     tcKimlikNo: personelData.tcKimlikNo,
+                    yerlesim: null,
+                    organizasyon: null,
+                    sirketAdi: null,
                     gorevi: personelData.gorevi,
+                    vardiyaTipi: null,
                     projeAdi: personelData.projeAdi,
                     grup: personelData.grup,
+                    terminal: null,
+                    bolgeKodu: null,
                     personelDurumu: personelData.personelDurumu,
 
                     egitimKodu: trainingData.code,
+                    egitimKoduYeni: trainingData.code,
                     egitimAltBasligi: topicTitle,
 
                     baslamaTarihi: body.baslama_tarihi,
@@ -179,9 +196,12 @@ export async function POST(request: NextRequest) {
                     icDisEgitim: body.ic_dis_egitim,
                     sonucBelgesiTuru: body.sonuc_belgesi_turu,
                     egitimDetayliAciklama: body.egitim_detayli_aciklama || null,
+                    egitimTestSonucu: null,
+                    tazelemePlanlamaTarihi: null,
 
                     veriGirenSicil: session.sicilNo,
                     veriGirenAdSoyad: session.fullName,
+                    veriGirisTarihi: new Date().toISOString(),
 
                     year,
                     month,
@@ -317,7 +337,7 @@ export async function PUT(request: NextRequest) {
                 });
                 if (!trainerByName) {
                     return NextResponse.json(
-                        { success: false, message: "Egitmen bulunamadi" },
+                        { success: false, message: "Eğitmen bulunamadı" },
                         { status: 400 }
                     );
                 }
@@ -333,7 +353,7 @@ export async function PUT(request: NextRequest) {
                 });
                 if (!trainerById) {
                     return NextResponse.json(
-                        { success: false, message: "Egitmen bulunamadi" },
+                        { success: false, message: "Eğitmen bulunamadı" },
                         { status: 400 }
                     );
                 }
@@ -366,11 +386,59 @@ export async function PUT(request: NextRequest) {
             case 'gorevi':
                 updateData.gorevi = value;
                 break;
+            case 'tc_kimlik_no':
+                if (!String(value ?? "").trim()) {
+                    return NextResponse.json(
+                        { success: false, message: "TC Kimlik No boş bırakılamaz" },
+                        { status: 400 }
+                    );
+                }
+                updateData.tcKimlikNo = value;
+                break;
             case 'proje_adi':
                 updateData.projeAdi = value;
                 break;
             case 'grup':
+                if (!String(value ?? "").trim()) {
+                    return NextResponse.json(
+                        { success: false, message: "Çalışma Grubu boş bırakılamaz" },
+                        { status: 400 }
+                    );
+                }
                 updateData.grup = value;
+                break;
+            case 'yerlesim':
+                updateData.yerlesim = value || null;
+                break;
+            case 'organizasyon':
+                updateData.organizasyon = value || null;
+                break;
+            case 'sirket_adi':
+                updateData.sirketAdi = value || null;
+                break;
+            case 'vardiya_tipi':
+                updateData.vardiyaTipi = value || null;
+                break;
+            case 'terminal':
+                updateData.terminal = value || null;
+                break;
+            case 'bolge_kodu':
+                updateData.bolgeKodu = value || null;
+                break;
+            case 'egitim_kodu_yeni':
+                updateData.egitimKoduYeni = value || null;
+                break;
+            case 'egitim_test_sonucu':
+                updateData.egitimTestSonucu = value || null;
+                break;
+            case 'tazeleme_planlama_tarihi':
+                updateData.tazelemePlanlamaTarihi = value || null;
+                break;
+            case 'veri_giren_sicil':
+                updateData.veriGirenSicil = value;
+                break;
+            case 'veri_giris_tarihi':
+                updateData.veriGirisTarihi = value;
                 break;
             default:
                 return NextResponse.json(

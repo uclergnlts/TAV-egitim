@@ -96,15 +96,9 @@ async function importData() {
     console.log('🚀 2025 Eğitim Verisi Import (JSON) Başlıyor...\n');
 
     // Database connection
-    const url = process.env.TURSO_DATABASE_URL;
+    const url = process.env.TURSO_DATABASE_URL || 'file:local.db';
     const authToken = process.env.TURSO_AUTH_TOKEN;
-
-    if (!url) {
-        console.error('❌ TURSO_DATABASE_URL tanımlı değil!');
-        process.exit(1);
-    }
-
-    const client = createClient({ url, authToken });
+    const client = createClient({ url, ...(authToken ? { authToken } : {}) });
 
     // Read JSON file
     const rootDir = path.join(__dirname, '..');
@@ -427,3 +421,4 @@ importData().catch(err => {
     console.error('❌ Import hatası:', err);
     process.exit(1);
 });
+

@@ -155,15 +155,22 @@ export const attendances = sqliteTable(
         sicilNo: text("sicil_no").notNull(),
         adSoyad: text("ad_soyad").notNull(),
         tcKimlikNo: text("tc_kimlik_no").notNull(),
+        yerlesim: text("yerlesim"),
+        organizasyon: text("organizasyon"),
+        sirketAdi: text("sirket_adi"),
         gorevi: text("gorevi").notNull(),
+        vardiyaTipi: text("vardiya_tipi"),
         projeAdi: text("proje_adi").notNull(),
         grup: text("grup").notNull(),
+        terminal: text("terminal"),
+        bolgeKodu: text("bolge_kodu"),
         personelDurumu: text("personel_durumu", {
             enum: ["CALISAN", "AYRILDI", "IZINLI", "PASIF"]
         }).notNull(),
 
         // Eğitim snapshot
         egitimKodu: text("egitim_kodu").notNull(),
+        egitimKoduYeni: text("egitim_kodu_yeni"),
         egitimAltBasligi: text("egitim_alt_basligi"),
 
         // Zaman bilgileri
@@ -182,10 +189,13 @@ export const attendances = sqliteTable(
             enum: ["EGITIM_KATILIM_CIZELGESI", "SERTIFIKA"]
         }).notNull(),
         egitimDetayliAciklama: text("egitim_detayli_aciklama"),
+        egitimTestSonucu: text("egitim_test_sonucu"),
+        tazelemePlanlamaTarihi: text("tazeleme_planlama_tarihi"),
 
         // Veri giren bilgisi
         veriGirenSicil: text("veri_giren_sicil").notNull(),
         veriGirenAdSoyad: text("veri_giren_ad_soyad").notNull(),
+        veriGirisTarihi: text("veri_giris_tarihi"),
 
         // Otomatik hesaplanan
         year: integer("year").notNull(),

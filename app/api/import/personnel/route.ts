@@ -75,6 +75,10 @@ export async function POST(request: NextRequest) {
                     results.errors.push({ row: rowIndex, message: "Sicil No veya Ad Soyad eksik" });
                     continue;
                 }
+                if (!row.tcKimlikNo || !row.grup) {
+                    results.errors.push({ row: rowIndex, message: "TC Kimlik No veya Çalışma Grubu eksik" });
+                    continue;
+                }
 
                 // Check if exists
                 const existing = await db.query.personnel.findFirst({
@@ -86,10 +90,10 @@ export async function POST(request: NextRequest) {
                     await db.update(personnel)
                         .set({
                             fullName: row.fullName,
-                            tcKimlikNo: row.tcKimlikNo || existing.tcKimlikNo,
+                            tcKimlikNo: row.tcKimlikNo,
                             gorevi: row.gorevi || existing.gorevi,
                             projeAdi: row.projeAdi || existing.projeAdi,
-                            grup: row.grup || existing.grup,
+                            grup: row.grup,
                             personelDurumu: (row.personelDurumu as any) || existing.personelDurumu,
                             cinsiyet: (row.cinsiyet as "ERKEK" | "KADIN" | null) || existing.cinsiyet,
                             telefon: row.telefon || existing.telefon,
@@ -105,10 +109,10 @@ export async function POST(request: NextRequest) {
                     await db.insert(personnel).values({
                         sicilNo: row.sicilNo.toString().trim(),
                         fullName: row.fullName,
-                        tcKimlikNo: row.tcKimlikNo || "00000000000",
+                        tcKimlikNo: row.tcKimlikNo,
                         gorevi: row.gorevi || "Personel",
                         projeAdi: row.projeAdi || "TAV ESB",
-                        grup: row.grup || "Genel",
+                        grup: row.grup,
                         personelDurumu: (row.personelDurumu as any) || "CALISAN",
                         cinsiyet: (row.cinsiyet as "ERKEK" | "KADIN" | undefined),
                         telefon: row.telefon,

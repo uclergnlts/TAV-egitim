@@ -13,15 +13,11 @@ import * as schema from "./schema";
 import "dotenv/config";
 
 async function seed() {
-    const tursoUrl = process.env.TURSO_DATABASE_URL;
+    const dbUrl = process.env.TURSO_DATABASE_URL ?? "file:local.db";
     const tursoAuthToken = process.env.TURSO_AUTH_TOKEN;
 
-    if (!tursoUrl) {
-        throw new Error("TURSO_DATABASE_URL environment variable is required.");
-    }
-
     const client = createClient({
-        url: tursoUrl,
+        url: dbUrl,
         ...(tursoAuthToken ? { authToken: tursoAuthToken } : {}),
     });
     const db = drizzle(client, { schema });

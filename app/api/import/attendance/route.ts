@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Attendance Import API
  * POST /api/import/attendance
  * Bulk import attendance records from Excel
@@ -14,7 +14,13 @@ import { checkRateLimit, getClientIP, RateLimitPresets } from "@/lib/rateLimit";
 
 interface AttendanceImportRow {
     sicilNo: string;
+    adiSoyadi?: string;
+    tcKimlikNo?: string;
+    gorevi?: string;
+    projeAdi?: string;
+    calismaGrubu?: string;
     egitimKodu: string;
+    egitimKoduYeni?: string;
     baslamaTarihi: string;
     bitisTarihi?: string;
     baslamaSaati?: string;
@@ -23,6 +29,19 @@ interface AttendanceImportRow {
     icDisEgitim?: string;
     sonucBelgesiTuru?: string;
     egitmenSicil?: string;
+    yerlesim?: string;
+    organizasyon?: string;
+    sirketAdi?: string;
+    vardiyaTipi?: string;
+    terminal?: string;
+    bolgeKodu?: string;
+    egitimDetayAciklama?: string;
+    egitimDetayAciklamaYeni?: string;
+    egitimTestSonucu?: string;
+    tazelemePlanlamaTarihi?: string;
+    veriyiGirenSicil?: string;
+    veriGirisTarihi?: string;
+    personelDurumu?: "CALISAN" | "AYRILDI" | "IZINLI" | "PASIF";
 }
 
 interface ImportError {
@@ -33,7 +52,7 @@ interface ImportError {
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^\d{2}:\d{2}$/;
 
-function normalizeDate(value: string | undefined): string {
+export function normalizeDate(value: string | undefined): string {
     if (!value) return "";
     const s = String(value).trim();
     if (DATE_RE.test(s)) return s;
@@ -65,7 +84,7 @@ function normalizeDate(value: string | undefined): string {
     return `${y}-${mo}-${d}`;
 }
 
-function normalizeTime(value: string | undefined, fallback: string): string {
+export function normalizeTime(value: string | undefined, fallback: string): string {
     if (!value) return fallback;
     const s = String(value).trim();
     if (TIME_RE.test(s)) return s;
@@ -74,7 +93,23 @@ function normalizeTime(value: string | undefined, fallback: string): string {
     return `${m[1].padStart(2, "0")}:${m[2]}`;
 }
 
-function normalizeIcDis(value: string | undefined): "IC" | "DIS" {
+export function normalizeDateTime(value: string | undefined): string | null {
+    if (!value) return null;
+    const s = String(value).trim();
+    if (!s) return null;
+
+    const normalizedDate = normalizeDate(s);
+    if (normalizedDate) {
+        const parsed = new Date(`${normalizedDate}T00:00:00.000Z`);
+        if (!Number.isNaN(parsed.getTime())) return parsed.toISOString();
+    }
+
+    const direct = new Date(s);
+    if (!Number.isNaN(direct.getTime())) return direct.toISOString();
+    return null;
+}
+
+export function normalizeIcDis(value: string | undefined): "IC" | "DIS" {
     const s = (value ?? "").toLowerCase();
     if (s.includes("dis") || s.includes("dış") || s === "d") {
         return "DIS";
@@ -82,7 +117,7 @@ function normalizeIcDis(value: string | undefined): "IC" | "DIS" {
     return "IC";
 }
 
-function normalizeDocumentType(value: string | undefined): "EGITIM_KATILIM_CIZELGESI" | "SERTIFIKA" | undefined {
+export function normalizeDocumentType(value: string | undefined): "EGITIM_KATILIM_CIZELGESI" | "SERTIFIKA" | undefined {
     if (!value) return undefined;
     const s = value.toLowerCase();
     if (s.includes("sertifika")) return "SERTIFIKA";
@@ -129,6 +164,7 @@ export async function POST(request: NextRequest) {
         const results = {
             created: 0,
             skipped: 0,
+            createdPersonnel: 0,
             errors: [] as ImportError[],
         };
 
@@ -145,23 +181,38 @@ export async function POST(request: NextRequest) {
                 const bitisSaati = normalizeTime(row.bitisSaati, "17:00");
 
                 if (!sicilNo || !egitimKodu || !baslamaTarihi) {
-                    results.errors.push({ row: rowNo, message: "Sicil No, Egitim Kodu veya Baslama Tarihi eksik/gecersiz" });
+                    results.errors.push({ row: rowNo, message: "Sicil No, Eğitim Kodu veya Başlama Tarihi eksik/geçersiz" });
                     continue;
                 }
 
-                const personelData = await db.query.personnel.findFirst({
+                let personelData = await db.query.personnel.findFirst({
                     where: eq(personnel.sicilNo, sicilNo),
                 });
                 if (!personelData) {
-                    results.errors.push({ row: rowNo, message: `${sicilNo}: Personel bulunamadi` });
-                    continue;
+                    await db.insert(personnel).values({
+                        sicilNo,
+                        fullName: String(row.adiSoyadi ?? "").trim() || `Sicil ${sicilNo}`,
+                        tcKimlikNo: String(row.tcKimlikNo ?? "").trim() || "00000000000",
+                        gorevi: String(row.gorevi ?? "").trim() || "BILINMIYOR",
+                        projeAdi: String(row.projeAdi ?? "").trim() || "BILINMIYOR",
+                        grup: String(row.calismaGrubu ?? "").trim() || "GENEL",
+                        personelDurumu: row.personelDurumu || "CALISAN",
+                    });
+                    personelData = await db.query.personnel.findFirst({
+                        where: eq(personnel.sicilNo, sicilNo),
+                    });
+                    if (!personelData) {
+                        results.errors.push({ row: rowNo, message: `${sicilNo}: Personel bulunamadı` });
+                        continue;
+                    }
+                    results.createdPersonnel++;
                 }
 
                 const trainingData = await db.query.trainings.findFirst({
                     where: eq(trainings.code, egitimKodu),
                 });
                 if (!trainingData) {
-                    results.errors.push({ row: rowNo, message: `${sicilNo}: Egitim kodu (${egitimKodu}) bulunamadi` });
+                    results.errors.push({ row: rowNo, message: `${sicilNo}: Eğitim kodu (${egitimKodu}) bulunamadı` });
                     continue;
                 }
 
@@ -204,14 +255,21 @@ export async function POST(request: NextRequest) {
                     trainerId,
 
                     sicilNo: personelData.sicilNo,
-                    adSoyad: personelData.fullName,
-                    tcKimlikNo: personelData.tcKimlikNo,
-                    gorevi: personelData.gorevi,
-                    projeAdi: personelData.projeAdi,
-                    grup: personelData.grup,
-                    personelDurumu: personelData.personelDurumu,
+                    adSoyad: String(row.adiSoyadi ?? "").trim() || personelData.fullName,
+                    tcKimlikNo: String(row.tcKimlikNo ?? "").trim() || personelData.tcKimlikNo,
+                    yerlesim: row.yerlesim || null,
+                    organizasyon: row.organizasyon || null,
+                    sirketAdi: row.sirketAdi || null,
+                    gorevi: String(row.gorevi ?? "").trim() || personelData.gorevi,
+                    vardiyaTipi: row.vardiyaTipi || null,
+                    projeAdi: String(row.projeAdi ?? "").trim() || personelData.projeAdi,
+                    grup: String(row.calismaGrubu ?? "").trim() || personelData.grup,
+                    terminal: row.terminal || null,
+                    bolgeKodu: row.bolgeKodu || null,
+                    personelDurumu: row.personelDurumu || personelData.personelDurumu,
 
                     egitimKodu: trainingData.code,
+                    egitimKoduYeni: row.egitimKoduYeni || trainingData.code,
 
                     baslamaTarihi,
                     bitisTarihi,
@@ -222,9 +280,13 @@ export async function POST(request: NextRequest) {
                     egitimYeri: row.egitimYeri || trainingData.defaultLocation || "Bilinmiyor",
                     icDisEgitim: normalizeIcDis(row.icDisEgitim),
                     sonucBelgesiTuru: normalizedDocType,
+                    egitimDetayliAciklama: row.egitimDetayAciklamaYeni || row.egitimDetayAciklama || null,
+                    egitimTestSonucu: row.egitimTestSonucu || null,
+                    tazelemePlanlamaTarihi: row.tazelemePlanlamaTarihi || null,
 
-                    veriGirenSicil: session.sicilNo,
+                    veriGirenSicil: row.veriyiGirenSicil || session.sicilNo,
                     veriGirenAdSoyad: session.fullName,
+                    veriGirisTarihi: normalizeDateTime(row.veriGirisTarihi) || new Date().toISOString(),
 
                     year,
                     month,
@@ -248,7 +310,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({
             success: true,
-            message: `${results.created} kayıt oluşturuldu, ${results.skipped} kayıt atlandı.`,
+            message: `${results.created} kayıt oluşturuldu, ${results.skipped} kayıt atlandı, ${results.createdPersonnel} personel otomatik oluşturuldu.`,
             data: results,
         });
     } catch (error) {
@@ -256,4 +318,5 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: false, message: `Import hatası: ${message}` }, { status: 500 });
     }
 }
+
 

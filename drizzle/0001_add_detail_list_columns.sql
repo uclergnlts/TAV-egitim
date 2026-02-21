@@ -1,0 +1,10 @@
+ALTER TABLE attendances ADD COLUMN yerlesim text;
+ALTER TABLE attendances ADD COLUMN organizasyon text;
+ALTER TABLE attendances ADD COLUMN sirket_adi text;
+ALTER TABLE attendances ADD COLUMN vardiya_tipi text;
+ALTER TABLE attendances ADD COLUMN terminal text;
+ALTER TABLE attendances ADD COLUMN bolge_kodu text;
+ALTER TABLE attendances ADD COLUMN egitim_kodu_yeni text;
+ALTER TABLE attendances ADD COLUMN egitim_test_sonucu text;
+ALTER TABLE attendances ADD COLUMN tazeleme_planlama_tarihi text;
+ALTER TABLE attendances ADD COLUMN veri_giris_tarihi text;

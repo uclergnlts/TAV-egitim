@@ -30,7 +30,7 @@ export async function GET(request: Request) {
 
             if (!training) {
                 return NextResponse.json(
-                    { success: false, message: "Egitim bulunamadi" },
+                    { success: false, message: "Eğitim bulunamadı" },
                     { status: 404 }
                 );
             }

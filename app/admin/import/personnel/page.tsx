@@ -36,7 +36,7 @@ export default function PersonnelImportPage() {
         const template = [
             {
                 "Sicil No": "35495",
-                "Adı Soyadı ": "AHMET YILMAZ",
+                "Adı Soyadı": "AHMET YILMAZ",
                 "Tc Kimlik No": "12345678901",
                 "Görevi": "Güvenlik Görevlisi",
                 "Proje Adi": "TAV ESB",
@@ -44,6 +44,7 @@ export default function PersonnelImportPage() {
                 "Personel Durumu": "Çalışan",
                 "Cinsiyet": "ERKEK",
                 "Telefon": "05551234567",
+                "Doğum Tarihi": "1990-01-01",
                 "Email": "ahmet@tav.com",
                 "Adres": "Ankara"
             }
@@ -155,7 +156,7 @@ export default function PersonnelImportPage() {
             let dupCount = 0;
             const seen = new Set<string>();
             const unique = mapped.filter(r => {
-                if (!r.sicilNo || !r.fullName) {
+                if (!r.sicilNo || !r.fullName || !r.tcKimlikNo || !r.grup) {
                     invalidCount++;
                     return false;
                 }
@@ -175,7 +176,7 @@ export default function PersonnelImportPage() {
                 const colNames = Object.keys(jsonData[0]).join(", ");
                 setParseError(
                     `${mapped.length} satır okundu ancak geçerli kayıt bulunamadı. ` +
-                    `Sicil No ve Ad Soyad sütunları gereklidir. ` +
+                    `Sicil No, Ad Soyad, Tc Kimlik No ve Calisma Grubu sütunları gereklidir. ` +
                     `Dosyadaki sütunlar: ${colNames}`
                 );
             }
@@ -328,7 +329,7 @@ export default function PersonnelImportPage() {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
                                 </svg>
                                 <span className="text-sm text-amber-800">
-                                    {skippedCount} satır eksik veri (Sicil No veya Ad Soyad) nedeniyle atlandı
+                                    {skippedCount} satır eksik veri (Sicil No, Ad Soyad, Tc Kimlik No, Calisma Grubu) nedeniyle atlandı
                                 </span>
                             </div>
                         )}
@@ -347,20 +348,29 @@ export default function PersonnelImportPage() {
 
                 <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-100">
                     <h3 className="font-semibold text-blue-800 mb-2">Excel Sütun Formatı</h3>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                         <div>
                             <p className="font-medium text-gray-700">Zorunlu Alanlar:</p>
                             <ul className="list-disc list-inside text-gray-600 ml-2">
                                 <li><code className="bg-white px-1 rounded">Sicil No</code></li>
-                                <li><code className="bg-white px-1 rounded">Ad Soyad</code></li>
+                                <li><code className="bg-white px-1 rounded">Adı Soyadı</code> / <code className="bg-white px-1 rounded">Ad Soyad</code></li>
+                                <li><code className="bg-white px-1 rounded">Tc Kimlik No</code></li>
+                                <li><code className="bg-white px-1 rounded">Calisma Grubu</code></li>
+                            </ul>
+                        </div>
+                        <div>
+                            <p className="font-medium text-gray-700">Varsayılanlar:</p>
+                            <ul className="list-disc list-inside text-gray-600 ml-2">
+                                <li><code className="bg-white px-1 rounded">Personel Durumu</code>: <code className="bg-white px-1 rounded">CALISAN</code></li>
+                                <li><code className="bg-white px-1 rounded">Görevi</code>: <code className="bg-white px-1 rounded">Personel</code></li>
+                                <li><code className="bg-white px-1 rounded">Proje Adi</code>: <code className="bg-white px-1 rounded">TAV ESB</code></li>
                             </ul>
                         </div>
                         <div>
                             <p className="font-medium text-gray-700">Opsiyonel Alanlar:</p>
                             <ul className="list-disc list-inside text-gray-600 ml-2">
-                                <li><code className="bg-white px-1 rounded">TC Kimlik</code>, <code className="bg-white px-1 rounded">Görevi</code></li>
-                                <li><code className="bg-white px-1 rounded">Proje</code>, <code className="bg-white px-1 rounded">Grup</code>, <code className="bg-white px-1 rounded">Durum</code></li>
-                                <li><code className="bg-white px-1 rounded">Email</code>, <code className="bg-white px-1 rounded">Telefon</code>, <code className="bg-white px-1 rounded">Adres</code></li>
+                                <li><code className="bg-white px-1 rounded">Cinsiyet</code>, <code className="bg-white px-1 rounded">Telefon</code>, <code className="bg-white px-1 rounded">Doğum Tarihi</code></li>
+                                <li><code className="bg-white px-1 rounded">Email</code>, <code className="bg-white px-1 rounded">Adres</code></li>
                             </ul>
                         </div>
                     </div>

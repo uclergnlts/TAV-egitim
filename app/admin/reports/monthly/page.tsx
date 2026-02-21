@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { MONTHS_TR } from "@/lib/utils";
@@ -10,10 +10,17 @@ interface AttendanceRow {
     sicil_no: string;
     ad_soyad: string;
     tc_kimlik_no: string;
+    yerlesim: string | null;
+    organizasyon: string | null;
+    sirket_adi: string | null;
     gorevi: string;
+    vardiya_tipi: string | null;
     proje_adi: string;
     grup: string;
+    terminal: string | null;
+    bolge_kodu: string | null;
     egitim_kodu: string;
+    egitim_kodu_yeni: string | null;
     egitim_alt_basligi: string | null;
     baslama_tarihi: string;
     bitis_tarihi: string;
@@ -25,6 +32,8 @@ interface AttendanceRow {
     sonuc_belgesi_turu: string;
     ic_dis_egitim: string;
     egitim_detayli_aciklama: string | null;
+    egitim_test_sonucu: string | null;
+    tazeleme_planlama_tarihi: string | null;
     veri_giren_sicil: string;
     veri_giren_ad_soyad: string;
     veri_giris_tarihi: string;
@@ -590,27 +599,37 @@ export default function MonthlyReportPage() {
     const exportToExcel = () => {
         if (!filteredAndSortedRows.length) return;
 
-        const exportData = filteredAndSortedRows.map(row => ({
+        const exportData = filteredAndSortedRows.map((row, idx) => ({
+            "S. No": idx + 1,
             "Sicil No": row.sicil_no,
-            "Ad Soyad": row.ad_soyad,
-            "TC Kimlik": row.tc_kimlik_no,
+            "Adı Soyadı ": row.ad_soyad,
+            "Tc Kimlik No": row.tc_kimlik_no,
+            "Yerlesim": row.yerlesim || "",
+            "Organizasyon": row.organizasyon || "",
+            "Şirket Adı": row.sirket_adi || "",
             "Görevi": row.gorevi,
-            "Proje": row.proje_adi,
-            "Grup": row.grup,
-            "Eğitim Kodu": row.egitim_kodu,
-            "Eğitim Alt Başlık": row.egitim_alt_basligi || "",
-            "Eğitim Başlama Tarihi": row.baslama_tarihi,
-            "Eğitim Bitiş Tarihi": row.bitis_tarihi,
-            "Eğitim Süresi (dk)": row.egitim_suresi_dk,
-            "Eğitim Başlama Saati": row.baslama_saati,
-            "Eğitim Bitiş Saati": row.bitis_saati,
-            "Eğitim Yeri": row.egitim_yeri,
+            "Vardiya Tipi": row.vardiya_tipi || "",
+            "Proje Adi": row.proje_adi,
+            "Calisma Grubu": row.grup,
+            "Terminal": row.terminal || "",
+            "Bolge Kodu": row.bolge_kodu || "",
+            "Egitim Kodu": row.egitim_kodu,
+            "Egitim Kodu (Yeni)": row.egitim_kodu_yeni || row.egitim_kodu,
+            "Egt Bas Trh": row.baslama_tarihi,
+            "Egt Bit Trh": row.bitis_tarihi,
+            "Egitim Suresi": row.egitim_suresi_dk,
+            "Egitim Baslama Saati": row.baslama_saati,
+            "Egitim Bitis Saati": row.bitis_saati,
+            "Egitimin Yeri": row.egitim_yeri,
             "Eğitmen Adı": row.egitmen_adi || "",
-            "Sonuç Belgesi": row.sonuc_belgesi_turu,
-            "İç/Dış Eğitim": row.ic_dis_egitim === 'IC' ? 'İç' : 'Dış',
-            "Eğitim Detay": row.egitim_detayli_aciklama || "",
-            "Veri Giren": `${row.veri_giren_sicil} - ${row.veri_giren_ad_soyad}`,
-            "Veri Giriş Tarihi": row.veri_giris_tarihi ? new Date(row.veri_giris_tarihi).toLocaleString("tr-TR") : "",
+            "Sonuc Belgesi": row.sonuc_belgesi_turu,
+            "Ic Dis Egitim": row.ic_dis_egitim,
+            "Egitim Detay Aciklama": row.egitim_detayli_aciklama || "",
+            "Egitim Detay Açıklama (Yeni)": row.egitim_detayli_aciklama || "",
+            "Egitim Test Sonucu": row.egitim_test_sonucu || "",
+            "Tazeleme Planlama Tarihi": row.tazeleme_planlama_tarihi || "",
+            "Veriyi Giren Sicil": row.veri_giren_sicil,
+            "Veri Giris Tarihi": row.veri_giris_tarihi ? new Date(row.veri_giris_tarihi).toLocaleString("tr-TR") : "",
             "Personel Durumu": row.personel_durumu
         }));
 
@@ -647,7 +666,7 @@ export default function MonthlyReportPage() {
 
     const icDisOptions = [
         { value: 'IC', label: 'İç' },
-        { value: 'DIS', label: 'Dış' }
+        { value: 'DIS', label: 'Dİç' }
     ];
 
     return (
@@ -902,7 +921,6 @@ export default function MonthlyReportPage() {
                         <table className="min-w-max w-full divide-y divide-gray-200 text-xs">
                             <thead className="bg-gray-100 sticky top-0 z-10">
                                 <tr>
-                                    {/* Checkbox */}
                                     <th className="px-2 py-3 text-center bg-gray-100 border-r">
                                         <input
                                             type="checkbox"
@@ -912,33 +930,36 @@ export default function MonthlyReportPage() {
                                             title="Tümünü seç"
                                         />
                                     </th>
-                                    {/* Personel Bilgileri */}
-                                    <SortableHeader label="Sicil No" sortKey="sicil_no" currentSort={sortConfig} onSort={handleSort} className="bg-blue-50 border-r" />
-                                    <SortableHeader label="Ad Soyad" sortKey="ad_soyad" currentSort={sortConfig} onSort={handleSort} className="bg-blue-50" />
-                                    <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-blue-50">TC Kimlik</th>
+                                    <SortableHeader label="Sicil No" sortKey="sicil_no" currentSort={sortConfig} onSort={handleSort} className="bg-blue-50" />
+                                    <SortableHeader label="Adı Soyadı" sortKey="ad_soyad" currentSort={sortConfig} onSort={handleSort} className="bg-blue-50" />
+                                    <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-blue-50">Tc Kimlik No</th>
+                                    <SortableHeader label="Yerlesim" sortKey="yerlesim" currentSort={sortConfig} onSort={handleSort} className="bg-blue-50" />
+                                    <SortableHeader label="Organizasyon" sortKey="organizasyon" currentSort={sortConfig} onSort={handleSort} className="bg-blue-50" />
+                                    <SortableHeader label="Şirket Adı" sortKey="sirket_adi" currentSort={sortConfig} onSort={handleSort} className="bg-blue-50" />
                                     <SortableHeader label="Görevi" sortKey="gorevi" currentSort={sortConfig} onSort={handleSort} className="bg-blue-50" />
-                                    <SortableHeader label="Proje" sortKey="proje_adi" currentSort={sortConfig} onSort={handleSort} className="bg-blue-50" />
-                                    <SortableHeader label="Grup" sortKey="grup" currentSort={sortConfig} onSort={handleSort} className="bg-blue-50 border-r" />
-                                    {/* Eğitim Bilgileri */}
-                                    <SortableHeader label="Eğitim Kodu" sortKey="egitim_kodu" currentSort={sortConfig} onSort={handleSort} className="bg-green-50" />
-                                    <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-green-50 border-r">Alt Başlık</th>
-                                    {/* Zaman Bilgileri */}
-                                    <SortableHeader label="Baş. Tarihi" sortKey="baslama_tarihi" currentSort={sortConfig} onSort={handleSort} className="bg-yellow-50" />
-                                    <SortableHeader label="Bit. Tarihi" sortKey="bitis_tarihi" currentSort={sortConfig} onSort={handleSort} className="bg-yellow-50" />
-                                    <SortableHeader label="Süre (dk)" sortKey="egitim_suresi_dk" currentSort={sortConfig} onSort={handleSort} className="bg-yellow-50 text-right" />
-                                    <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-yellow-50">Baş. Saati</th>
-                                    <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-yellow-50 border-r">Bit. Saati</th>
-                                    {/* Detay Bilgileri */}
-                                    <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-orange-50">Eğitim Yeri</th>
-                                    <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-orange-50 border-r">Eğitmen Adı</th>
-                                    {/* Belge & Diğer */}
-                                    <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-purple-50">Sonuç Belgesi</th>
-                                    <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-purple-50">İç/Dış</th>
-                                    <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-purple-50 border-r">Eğitim Detay</th>
-                                    {/* Audit */}
-                                    <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-red-50">Veri Giren</th>
-                                    <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-red-50">Giriş Tar.</th>
-                                    <SortableHeader label="Durum" sortKey="personel_durumu" currentSort={sortConfig} onSort={handleSort} className="bg-gray-200" />
+                                    <SortableHeader label="Vardiya Tipi" sortKey="vardiya_tipi" currentSort={sortConfig} onSort={handleSort} className="bg-blue-50" />
+                                    <SortableHeader label="Proje Adi" sortKey="proje_adi" currentSort={sortConfig} onSort={handleSort} className="bg-blue-50" />
+                                    <SortableHeader label="Calisma Grubu" sortKey="grup" currentSort={sortConfig} onSort={handleSort} className="bg-blue-50" />
+                                    <SortableHeader label="Terminal" sortKey="terminal" currentSort={sortConfig} onSort={handleSort} className="bg-blue-50" />
+                                    <SortableHeader label="Bolge Kodu" sortKey="bolge_kodu" currentSort={sortConfig} onSort={handleSort} className="bg-blue-50" />
+                                    <SortableHeader label="Egitim Kodu" sortKey="egitim_kodu" currentSort={sortConfig} onSort={handleSort} className="bg-green-50" />
+                                    <SortableHeader label="Egitim Kodu (Yeni)" sortKey="egitim_kodu_yeni" currentSort={sortConfig} onSort={handleSort} className="bg-green-50" />
+                                    <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-yellow-50">Egt Bas Trh</th>
+                                    <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-yellow-50">Egt Bit Trh</th>
+                                    <SortableHeader label="Egitim Suresi" sortKey="egitim_suresi_dk" currentSort={sortConfig} onSort={handleSort} className="bg-yellow-50 text-right" />
+                                    <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-yellow-50">Egitim Baslama Saati</th>
+                                    <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-yellow-50">Egitim Bitis Saati</th>
+                                    <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-orange-50">Egitimin Yeri</th>
+                                    <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-orange-50">Eğitmen Adı</th>
+                                    <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-purple-50">Sonuc Belgesi</th>
+                                    <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-purple-50">Ic Dis Egitim</th>
+                                    <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-purple-50">Egitim Detay Aciklama</th>
+                                    <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-purple-50">Egitim Detay Açıklama (Yeni)</th>
+                                    <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-purple-50">Egitim Test Sonucu</th>
+                                    <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-purple-50">Tazeleme Planlama Tarihi</th>
+                                    <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-red-50">Veriyi Giren Sicil</th>
+                                    <th className="px-3 py-3 text-left font-semibold text-gray-700 bg-red-50">Veri Giris Tarihi</th>
+                                    <SortableHeader label="Personel Durumu" sortKey="personel_durumu" currentSort={sortConfig} onSort={handleSort} className="bg-gray-200" />
                                     <th className="px-3 py-3 text-center font-semibold text-gray-700 bg-gray-100">İşlem</th>
                                 </tr>
                             </thead>
@@ -956,153 +977,35 @@ export default function MonthlyReportPage() {
                                                 className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                             />
                                         </td>
-                                        <td className="px-3 py-2 font-mono font-medium text-blue-700 bg-blue-50/30 border-r whitespace-nowrap">{row.sicil_no}</td>
-                                        <td className="px-3 py-2 whitespace-nowrap">
-                                            <EditableCell
-                                                value={row.ad_soyad}
-                                                rowId={row.id}
-                                                field="ad_soyad"
-                                                onSave={handleInlineEdit}
-                                            />
-                                        </td>
+                                        <td className="px-3 py-2 font-mono font-medium text-blue-700 whitespace-nowrap">{row.sicil_no}</td>
+                                        <td className="px-3 py-2 whitespace-nowrap"><EditableCell value={row.ad_soyad} rowId={row.id} field="ad_soyad" onSave={handleInlineEdit} /></td>
                                         <td className="px-3 py-2 text-gray-500 font-mono text-[10px]">{row.tc_kimlik_no}</td>
-                                        <td className="px-3 py-2 whitespace-nowrap">
-                                            <EditableCell
-                                                value={row.gorevi}
-                                                rowId={row.id}
-                                                field="gorevi"
-                                                onSave={handleInlineEdit}
-                                            />
-                                        </td>
-                                        <td className="px-3 py-2 whitespace-nowrap">
-                                            <EditableCell
-                                                value={row.proje_adi}
-                                                rowId={row.id}
-                                                field="proje_adi"
-                                                onSave={handleInlineEdit}
-                                            />
-                                        </td>
-                                        <td className="px-3 py-2 border-r">
-                                            <EditableCell
-                                                value={row.grup}
-                                                rowId={row.id}
-                                                field="grup"
-                                                onSave={handleInlineEdit}
-                                            />
-                                        </td>
-                                        <td className="px-3 py-2 font-bold text-green-700 whitespace-nowrap">
-                                            <EditableCell
-                                                value={row.egitim_kodu}
-                                                rowId={row.id}
-                                                field="egitim_kodu"
-                                                onSave={handleInlineEdit}
-                                            />
-                                        </td>
-                                        <td className="px-3 py-2 text-gray-600 border-r max-w-[150px]">
-                                            <EditableTextArea
-                                                value={row.egitim_alt_basligi}
-                                                rowId={row.id}
-                                                field="egitim_alt_basligi"
-                                                onSave={handleInlineEdit}
-                                                className="max-w-[140px]"
-                                            />
-                                        </td>
-                                        <td className="px-3 py-2 whitespace-nowrap font-mono text-[11px]">
-                                            <EditableCell
-                                                value={row.baslama_tarihi}
-                                                rowId={row.id}
-                                                field="baslama_tarihi"
-                                                type="date"
-                                                onSave={handleInlineEdit}
-                                            />
-                                        </td>
-                                        <td className="px-3 py-2 whitespace-nowrap font-mono text-[11px]">
-                                            <EditableCell
-                                                value={row.bitis_tarihi}
-                                                rowId={row.id}
-                                                field="bitis_tarihi"
-                                                type="date"
-                                                onSave={handleInlineEdit}
-                                            />
-                                        </td>
-                                        <td className="px-3 py-2 text-right font-bold text-orange-700">
-                                            <EditableCell
-                                                value={row.egitim_suresi_dk.toString()}
-                                                rowId={row.id}
-                                                field="egitim_suresi_dk"
-                                                type="number"
-                                                onSave={handleInlineEdit}
-                                                className="text-right"
-                                            />
-                                        </td>
-                                        <td className="px-3 py-2 font-mono text-[11px]">
-                                            <EditableCell
-                                                value={row.baslama_saati}
-                                                rowId={row.id}
-                                                field="baslama_saati"
-                                                type="time"
-                                                onSave={handleInlineEdit}
-                                            />
-                                        </td>
-                                        <td className="px-3 py-2 font-mono text-[11px] border-r">
-                                            <EditableCell
-                                                value={row.bitis_saati}
-                                                rowId={row.id}
-                                                field="bitis_saati"
-                                                type="time"
-                                                onSave={handleInlineEdit}
-                                            />
-                                        </td>
-                                        <td className="px-3 py-2 max-w-[120px]">
-                                            <EditableCell
-                                                value={row.egitim_yeri}
-                                                rowId={row.id}
-                                                field="egitim_yeri"
-                                                onSave={handleInlineEdit}
-                                                className="truncate"
-                                            />
-                                        </td>
-                                        <td className="px-3 py-2 border-r whitespace-nowrap">
-                                            <EditableCell
-                                                value={row.egitmen_adi || ''}
-                                                rowId={row.id}
-                                                field="egitmen_adi"
-                                                onSave={handleInlineEdit}
-                                            />
-                                        </td>
-                                        <td className="px-3 py-2 max-w-[120px] text-[10px]">
-                                            <EditableCell
-                                                value={row.sonuc_belgesi_turu}
-                                                rowId={row.id}
-                                                field="sonuc_belgesi_turu"
-                                                type="select"
-                                                options={documentTypeOptions}
-                                                onSave={handleInlineEdit}
-                                            />
-                                        </td>
-                                        <td className="px-3 py-2">
-                                            <EditableCell
-                                                value={row.ic_dis_egitim}
-                                                rowId={row.id}
-                                                field="ic_dis_egitim"
-                                                type="select"
-                                                options={icDisOptions}
-                                                onSave={handleInlineEdit}
-                                            />
-                                        </td>
-                                        <td className="px-3 py-2 border-r max-w-[150px]">
-                                            <EditableTextArea
-                                                value={row.egitim_detayli_aciklama}
-                                                rowId={row.id}
-                                                field="egitim_detayli_aciklama"
-                                                onSave={handleInlineEdit}
-                                                className="text-gray-500 text-[10px] max-w-[140px]"
-                                            />
-                                        </td>
-                                        <td className="px-3 py-2 text-gray-500 text-[10px] whitespace-nowrap">{row.veri_giren_sicil} - {row.veri_giren_ad_soyad}</td>
-                                        <td className="px-3 py-2 text-gray-400 text-[10px] whitespace-nowrap">
-                                            {row.veri_giris_tarihi ? new Date(row.veri_giris_tarihi).toLocaleString("tr-TR") : "-"}
-                                        </td>
+                                        <td className="px-3 py-2 whitespace-nowrap"><EditableCell value={row.yerlesim || ''} rowId={row.id} field="yerlesim" onSave={handleInlineEdit} /></td>
+                                        <td className="px-3 py-2 whitespace-nowrap"><EditableCell value={row.organizasyon || ''} rowId={row.id} field="organizasyon" onSave={handleInlineEdit} /></td>
+                                        <td className="px-3 py-2 whitespace-nowrap"><EditableCell value={row.sirket_adi || ''} rowId={row.id} field="sirket_adi" onSave={handleInlineEdit} /></td>
+                                        <td className="px-3 py-2 whitespace-nowrap"><EditableCell value={row.gorevi} rowId={row.id} field="gorevi" onSave={handleInlineEdit} /></td>
+                                        <td className="px-3 py-2 whitespace-nowrap"><EditableCell value={row.vardiya_tipi || ''} rowId={row.id} field="vardiya_tipi" onSave={handleInlineEdit} /></td>
+                                        <td className="px-3 py-2 whitespace-nowrap"><EditableCell value={row.proje_adi} rowId={row.id} field="proje_adi" onSave={handleInlineEdit} /></td>
+                                        <td className="px-3 py-2 whitespace-nowrap"><EditableCell value={row.grup} rowId={row.id} field="grup" onSave={handleInlineEdit} /></td>
+                                        <td className="px-3 py-2 whitespace-nowrap"><EditableCell value={row.terminal || ''} rowId={row.id} field="terminal" onSave={handleInlineEdit} /></td>
+                                        <td className="px-3 py-2 whitespace-nowrap"><EditableCell value={row.bolge_kodu || ''} rowId={row.id} field="bolge_kodu" onSave={handleInlineEdit} /></td>
+                                        <td className="px-3 py-2 font-bold text-green-700 whitespace-nowrap"><EditableCell value={row.egitim_kodu} rowId={row.id} field="egitim_kodu" onSave={handleInlineEdit} /></td>
+                                        <td className="px-3 py-2 font-bold text-green-700 whitespace-nowrap"><EditableCell value={row.egitim_kodu_yeni || ''} rowId={row.id} field="egitim_kodu_yeni" onSave={handleInlineEdit} /></td>
+                                        <td className="px-3 py-2 whitespace-nowrap font-mono text-[11px]"><EditableCell value={row.baslama_tarihi} rowId={row.id} field="baslama_tarihi" type="date" onSave={handleInlineEdit} /></td>
+                                        <td className="px-3 py-2 whitespace-nowrap font-mono text-[11px]"><EditableCell value={row.bitis_tarihi} rowId={row.id} field="bitis_tarihi" type="date" onSave={handleInlineEdit} /></td>
+                                        <td className="px-3 py-2 text-right font-bold text-orange-700"><EditableCell value={row.egitim_suresi_dk.toString()} rowId={row.id} field="egitim_suresi_dk" type="number" onSave={handleInlineEdit} className="text-right" /></td>
+                                        <td className="px-3 py-2 font-mono text-[11px]"><EditableCell value={row.baslama_saati} rowId={row.id} field="baslama_saati" type="time" onSave={handleInlineEdit} /></td>
+                                        <td className="px-3 py-2 font-mono text-[11px]"><EditableCell value={row.bitis_saati} rowId={row.id} field="bitis_saati" type="time" onSave={handleInlineEdit} /></td>
+                                        <td className="px-3 py-2 max-w-[120px]"><EditableCell value={row.egitim_yeri} rowId={row.id} field="egitim_yeri" onSave={handleInlineEdit} className="truncate" /></td>
+                                        <td className="px-3 py-2 whitespace-nowrap"><EditableCell value={row.egitmen_adi || ''} rowId={row.id} field="egitmen_adi" onSave={handleInlineEdit} /></td>
+                                        <td className="px-3 py-2 max-w-[120px] text-[10px]"><EditableCell value={row.sonuc_belgesi_turu} rowId={row.id} field="sonuc_belgesi_turu" type="select" options={documentTypeOptions} onSave={handleInlineEdit} /></td>
+                                        <td className="px-3 py-2"><EditableCell value={row.ic_dis_egitim} rowId={row.id} field="ic_dis_egitim" type="select" options={icDisOptions} onSave={handleInlineEdit} /></td>
+                                        <td className="px-3 py-2 max-w-[150px]"><EditableTextArea value={row.egitim_detayli_aciklama} rowId={row.id} field="egitim_detayli_aciklama" onSave={handleInlineEdit} className="text-gray-500 text-[10px] max-w-[140px]" /></td>
+                                        <td className="px-3 py-2 max-w-[150px]"><EditableTextArea value={row.egitim_detayli_aciklama} rowId={row.id} field="egitim_detayli_aciklama" onSave={handleInlineEdit} className="text-gray-500 text-[10px] max-w-[140px]" /></td>
+                                        <td className="px-3 py-2 max-w-[120px]"><EditableCell value={row.egitim_test_sonucu || ''} rowId={row.id} field="egitim_test_sonucu" onSave={handleInlineEdit} /></td>
+                                        <td className="px-3 py-2 whitespace-nowrap"><EditableCell value={row.tazeleme_planlama_tarihi || ''} rowId={row.id} field="tazeleme_planlama_tarihi" type="date" onSave={handleInlineEdit} /></td>
+                                        <td className="px-3 py-2 text-gray-500 text-[10px] whitespace-nowrap"><EditableCell value={row.veri_giren_sicil} rowId={row.id} field="veri_giren_sicil" onSave={handleInlineEdit} /></td>
+                                        <td className="px-3 py-2 text-gray-400 text-[10px] whitespace-nowrap">{row.veri_giris_tarihi ? new Date(row.veri_giris_tarihi).toLocaleString("tr-TR") : "-"}</td>
                                         <td className="px-3 py-2">
                                             <StatusToggle
                                                 value={row.personel_durumu}
@@ -1285,3 +1188,6 @@ export default function MonthlyReportPage() {
         </div>
     );
 }
+
+
+

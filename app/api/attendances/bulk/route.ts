@@ -99,6 +99,15 @@ export async function POST(req: Request) {
                 continue;
             }
 
+            if (!person.tcKimlikNo?.trim()) {
+                errors.push(`${record.sicil_no}: Personel TC Kimlik No eksik`);
+                continue;
+            }
+            if (!person.grup?.trim()) {
+                errors.push(`${record.sicil_no}: Personel Çalışma Grubu eksik`);
+                continue;
+            }
+
             const training = trainingMap.get(record.training_id);
             if (!training) {
                 errors.push(`Eğitim Bulunamadı: ${record.training_id}`);
@@ -132,13 +141,20 @@ export async function POST(req: Request) {
                 sicilNo: person.sicilNo,
                 adSoyad: person.fullName,
                 tcKimlikNo: person.tcKimlikNo,
+                yerlesim: null,
+                organizasyon: null,
+                sirketAdi: null,
                 gorevi: person.gorevi,
+                vardiyaTipi: null,
                 projeAdi: person.projeAdi,
                 grup: person.grup,
+                terminal: null,
+                bolgeKodu: null,
                 personelDurumu: person.personelDurumu,
 
                 // Eğitim Snapshot
                 egitimKodu: training.code,
+                egitimKoduYeni: training.code,
                 egitimAltBasligi: topic?.title || null,
 
                 // Zaman
@@ -153,10 +169,13 @@ export async function POST(req: Request) {
                 icDisEgitim: record.ic_dis_egitim,
                 sonucBelgesiTuru: record.sonuc_belgesi_turu || "EGITIM_KATILIM_CIZELGESI", // Varsayılan
                 egitimDetayliAciklama: record.egitim_detayli_aciklama,
+                egitimTestSonucu: null,
+                tazelemePlanlamaTarihi: null,
 
                 // Meta
                 veriGirenSicil: session.sicilNo,
                 veriGirenAdSoyad: session.fullName,
+                veriGirisTarihi: new Date().toISOString(),
                 year: parseInt(record.baslama_tarihi.split("-")[0]),
                 month: parseInt(record.baslama_tarihi.split("-")[1]),
             });

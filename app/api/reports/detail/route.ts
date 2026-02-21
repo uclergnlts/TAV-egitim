@@ -73,16 +73,24 @@ export async function GET(request: NextRequest) {
         // Join with trainers to get trainer name
         // Select strict fields required by 06-DETAIL-TABLE-FINAL.md (21 columns)
         const result = await db.select({
+            id: attendances.id,
             // 1. Personel Bilgileri
             sicilNo: attendances.sicilNo,
             adSoyad: attendances.adSoyad,
             tcKimlikNo: attendances.tcKimlikNo,
+            yerlesim: attendances.yerlesim,
+            organizasyon: attendances.organizasyon,
+            sirketAdi: attendances.sirketAdi,
             gorevi: attendances.gorevi,
+            vardiyaTipi: attendances.vardiyaTipi,
             projeAdi: attendances.projeAdi,
             grup: attendances.grup,
+            terminal: attendances.terminal,
+            bolgeKodu: attendances.bolgeKodu,
 
             // 2. Eğitim Bilgileri
             egitimKodu: attendances.egitimKodu,
+            egitimKoduYeni: attendances.egitimKoduYeni,
             egitimAltBasligi: attendances.egitimAltBasligi,
 
             // 3. Zaman Bilgileri
@@ -98,11 +106,13 @@ export async function GET(request: NextRequest) {
             sonucBelgesiTuru: attendances.sonucBelgesiTuru,
             icDisEgitim: attendances.icDisEgitim,
             egitimDetayliAciklama: attendances.egitimDetayliAciklama,
+            egitimTestSonucu: attendances.egitimTestSonucu,
+            tazelemePlanlamaTarihi: attendances.tazelemePlanlamaTarihi,
 
             // 5. Kayıt (Audit) Bilgileri
             veriGirenSicil: attendances.veriGirenSicil,
             veriGirenAdSoyad: attendances.veriGirenAdSoyad,
-            veriGirisTarihi: attendances.createdAt,
+            veriGirisTarihi: sql<string>`coalesce(${attendances.veriGirisTarihi}, ${attendances.createdAt})`,
 
             // 6. Personel Durumu
             personelDurumu: attendances.personelDurumu,

@@ -211,7 +211,7 @@ export default function TrainingsImportPage() {
 
     const downloadTemplate = () => {
         const wb = XLSX.utils.book_new();
-        const aoa = [
+        const pivotAoa = [
             [],
             [null, "TAV ÖZEL GÜVENLİK HİZMETLERİ A.Ş. EĞİTİM YILI EĞİTİM TÜRLERİ"],
             [],
@@ -220,9 +220,22 @@ export default function TrainingsImportPage() {
             [null, "KARGO POSTA GÜVENLİĞİ", "M11", 40, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
             [null, "YENİ EĞİTİM ADI", "M99", 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         ];
+        const standardRows = [
+            {
+                Kod: "M4",
+                Ad: "Bilgi Tazeleme Eğitimi",
+                "Süre (dk)": 40,
+                Kategori: "TAZELEME",
+                "Eğitim Yeri": "Sınıf",
+                "Belge Türü": "Eğitim Katılım Çizelgesi",
+                "Alt Başlıklar": "Giriş, Prosedürler, Değerlendirme",
+            },
+        ];
 
-        const ws = XLSX.utils.aoa_to_sheet(aoa);
-        XLSX.utils.book_append_sheet(wb, ws, "Sayfa1");
+        const pivotWs = XLSX.utils.aoa_to_sheet(pivotAoa);
+        const standardWs = XLSX.utils.json_to_sheet(standardRows);
+        XLSX.utils.book_append_sheet(wb, pivotWs, "Yıllık Pivot");
+        XLSX.utils.book_append_sheet(wb, standardWs, "Standart");
         XLSX.writeFile(wb, "egitim_import_sablonu.xlsx");
     };
 
@@ -363,25 +376,32 @@ export default function TrainingsImportPage() {
 
                 <div className="mb-4 p-4 bg-gradient-to-r from-purple-50 to-fuchsia-50 rounded-lg border border-purple-100">
                     <h3 className="font-semibold text-purple-800 mb-2">Excel Sütun Formatı</h3>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                         <div>
                             <p className="font-medium text-gray-700">Zorunlu Alanlar:</p>
                             <ul className="list-disc list-inside text-gray-600 ml-2">
-                                <li><code className="bg-white px-1 rounded">Kod</code> - Eğitim kodu (Örn: M90)</li>
-                                <li><code className="bg-white px-1 rounded">Ad</code> - Eğitim adı</li>
+                                <li>Standart: <code className="bg-white px-1 rounded">Kod</code> + <code className="bg-white px-1 rounded">Ad</code></li>
+                                <li>Pivot: <code className="bg-white px-1 rounded">EĞİTİMLER</code> + <code className="bg-white px-1 rounded">EĞİTİM KODU</code></li>
+                            </ul>
+                        </div>
+                        <div>
+                            <p className="font-medium text-gray-700">Varsayılanlar:</p>
+                            <ul className="list-disc list-inside text-gray-600 ml-2">
+                                <li><code className="bg-white px-1 rounded">Süre (dk)</code>: <code className="bg-white px-1 rounded">60</code></li>
+                                <li><code className="bg-white px-1 rounded">Kategori</code>: <code className="bg-white px-1 rounded">TEMEL</code></li>
+                                <li><code className="bg-white px-1 rounded">Belge Türü</code>: boş bırakılabilir</li>
                             </ul>
                         </div>
                         <div>
                             <p className="font-medium text-gray-700">Opsiyonel Alanlar:</p>
                             <ul className="list-disc list-inside text-gray-600 ml-2">
-                                <li><code className="bg-white px-1 rounded">Süre (dk)</code> - Dakika (varsayılan: 60)</li>
-                                <li><code className="bg-white px-1 rounded">Kategori</code> - TEMEL, TAZELEME, DIGER</li>
-                                <li><code className="bg-white px-1 rounded">Alt Başlıklar</code> - Virgülle ayrılmış</li>
+                                <li><code className="bg-white px-1 rounded">Eğitim Yeri</code>, <code className="bg-white px-1 rounded">Belge Türü</code></li>
+                                <li><code className="bg-white px-1 rounded">Alt Başlıklar</code> (virgülle ayrılmış)</li>
                             </ul>
                         </div>
                     </div>
                     <p className="text-xs text-gray-500 mt-2">
-                        Alt başlıkları virgülle ayırarak tek hücreye yazın. Örn: "Giriş, Temel Kavramlar, Sonuç"
+                        Aynı dosyada hem <code className="bg-white px-1 rounded">Yıllık Pivot</code> hem <code className="bg-white px-1 rounded">Standart</code> sayfası desteklenir.
                     </p>
                 </div>
 

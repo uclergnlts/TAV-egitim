@@ -1,19 +1,39 @@
-"use client";
+﻿"use client";
 
 import { useState, useRef, useCallback } from "react";
 import * as XLSX from "xlsx";
 
 interface ImportRow {
     sicilNo: string;
+    adiSoyadi?: string;
+    tcKimlikNo?: string;
+    gorevi?: string;
+    projeAdi?: string;
+    calismaGrubu?: string;
     egitimKodu: string;
+    egitimKoduYeni?: string;
     baslamaTarihi: string;
     bitisTarihi?: string;
+    egitimSuresi?: string;
     baslamaSaati?: string;
     bitisSaati?: string;
     egitimYeri?: string;
     icDisEgitim?: string;
     sonucBelgesiTuru?: string;
     egitmenSicil?: string;
+    yerlesim?: string;
+    organizasyon?: string;
+    sirketAdi?: string;
+    vardiyaTipi?: string;
+    terminal?: string;
+    bolgeKodu?: string;
+    egitimDetayAciklama?: string;
+    egitimDetayAciklamaYeni?: string;
+    egitimTestSonucu?: string;
+    tazelemePlanlamaTarihi?: string;
+    veriyiGirenSicil?: string;
+    veriGirisTarihi?: string;
+    personelDurumu?: "CALISAN" | "AYRILDI" | "IZINLI" | "PASIF";
 }
 
 export default function AttendanceImportPage() {
@@ -28,7 +48,6 @@ export default function AttendanceImportPage() {
     const [selectedSheet, setSelectedSheet] = useState<string>("");
     const [workbookRef, setWorkbookRef] = useState<XLSX.WorkBook | null>(null);
     const [parseError, setParseError] = useState<string>("");
-    const [rawDebug, setRawDebug] = useState<string>("");
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const downloadTemplate = () => {
@@ -212,8 +231,8 @@ export default function AttendanceImportPage() {
         return "";
     };
 
-    const parseExcelTime = (val: any): string => {
-        if (!val && val !== 0) return "09:00";
+    const parseExcelTime = (val: any, fallback = "09:00"): string => {
+        if (!val && val !== 0) return fallback;
 
         // Date objesi
         if (val instanceof Date) {
@@ -241,7 +260,7 @@ export default function AttendanceImportPage() {
 
         const s = String(val).trim();
         if (s.match(/^\d{1,2}:\d{2}/)) return s.substring(0, 5);
-        return "09:00";
+        return fallback;
     };
 
     const mapIcDis = (val: any): string => {
@@ -289,42 +308,53 @@ export default function AttendanceImportPage() {
                 for (const k of Object.keys(row)) rowLower[k.toLowerCase().trim()] = row[k];
                 for (const key of searchKeys) {
                     const val = row[key] ?? rowLower[key.toLowerCase().trim()];
-                    if (val !== undefined && val !== null) return val;
+                    if (val !== undefined && val !== null && String(val).trim() !== "") return val;
                 }
                 return undefined;
             };
 
             const mapped: ImportRow[] = jsonData.map((row: any) => ({
                 sicilNo: String(col(row, "Sicil No", "sicil no", "sicilNo", "Sicil", "sicil") ?? "").trim(),
+                adiSoyadi: String(col(row, "Adı Soyadı", "Adı Soyadı ", "Adi Soyadi", "ad soyad", "ad soyadı") ?? "").trim(),
+                tcKimlikNo: String(col(row, "Tc Kimlik No", "TC Kimlik No", "tc kimlik no", "tcKimlikNo") ?? "").trim(),
+                gorevi: String(col(row, "Görevi", "Gorevi", "görevi", "gorevi") ?? "").trim(),
+                projeAdi: String(col(row, "Proje Adi", "Proje Adı", "proje adi", "proje adı", "projeAdi") ?? "").trim(),
+                calismaGrubu: String(col(row, "Calisma Grubu", "Çalışma Grubu", "calisma grubu", "çalışma grubu", "grup") ?? "").trim(),
                 egitimKodu: String(col(row,
-                    "Egitim Kodu (Yeni)", "Eğitim Kodu (Yeni)",
                     "Egitim Kodu", "Eğitim Kodu", "egitimKodu",
+                    "Egitim Kodu (Yeni)", "Eğitim Kodu (Yeni)",
                     "Eğitim Kodu", "egitim kodu") ?? "").trim(),
+                egitimKoduYeni: String(col(row, "Egitim Kodu (Yeni)", "Eğitim Kodu (Yeni)") ?? "").trim(),
                 baslamaTarihi: parseTurkishDate(col(row, "Egt Bas Trh", "Başlama Tarihi", "baslamaTarihi", "Baslama Tarihi", "baslama tarihi")),
                 bitisTarihi: parseTurkishDate(col(row, "Egt Bit Trh", "Bitiş Tarihi", "bitisTarihi", "Bitis Tarihi")),
-                baslamaSaati: parseExcelTime(col(row, "Egitim Baslama Saati", "Eğitim Başlama Saati", "Başlama Saati", "baslamaSaati")),
-                bitisSaati: parseExcelTime(col(row, "Egitim Bitis Saati", "Eğitim Bitiş Saati", "Bitiş Saati", "bitisSaati")),
+                egitimSuresi: String(col(row, "Egitim Suresi", "Eğitim Süresi") ?? "").trim(),
+                baslamaSaati: parseExcelTime(col(row, "Egitim Baslama Saati", "Eğitim Başlama Saati", "Başlama Saati", "baslamaSaati"), "09:00"),
+                bitisSaati: parseExcelTime(col(row, "Egitim Bitis Saati", "Eğitim Bitiş Saati", "Bitiş Saati", "bitisSaati"), "17:00"),
                 egitimYeri: String(col(row, "Egitimin Yeri", "Eğitim Yeri", "egitimYeri") ?? ""),
                 icDisEgitim: mapIcDis(col(row, "Ic Dis Egitim", "İç/Dış", "icDisEgitim", "Ic/Dis")),
                 sonucBelgesiTuru: mapSonuc(col(row, "Sonuc Belgesi", "Belge Türü", "sonucBelgesiTuru")),
                 egitmenSicil: extractEgitmenSicil(col(row, "Eğitmen Adı", "Egitmen Adi", "Eğitmen Sicil", "egitmenSicil")),
+                yerlesim: String(col(row, "Yerlesim") ?? "").trim(),
+                organizasyon: String(col(row, "Organizasyon") ?? "").trim(),
+                sirketAdi: String(col(row, "Şirket Adı", "Sirket Adi") ?? "").trim(),
+                vardiyaTipi: String(col(row, "Vardiya Tipi") ?? "").trim(),
+                terminal: String(col(row, "Terminal") ?? "").trim(),
+                bolgeKodu: String(col(row, "Bolge Kodu", "Bölge Kodu") ?? "").trim(),
+                egitimDetayAciklama: String(col(row, "Egitim Detay Aciklama", "Eğitim Detay Açıklama") ?? "").trim(),
+                egitimDetayAciklamaYeni: String(col(row, "Egitim Detay Açıklama (Yeni)", "Eğitim Detay Açıklama (Yeni)") ?? "").trim(),
+                egitimTestSonucu: String(col(row, "Egitim Test Sonucu", "Eğitim Test Sonucu") ?? "").trim(),
+                tazelemePlanlamaTarihi: parseTurkishDate(col(row, "Tazeleme Planlama Tarihi")),
+                veriyiGirenSicil: String(col(row, "Veriyi Giren Sicil") ?? "").trim(),
+                veriGirisTarihi: String(col(row, "Veri Giris Tarihi", "Veri Giriş Tarihi") ?? "").trim(),
+                personelDurumu: String(col(row, "Personel Durumu") ?? "").toUpperCase().includes("AYR") ? "AYRILDI" :
+                    String(col(row, "Personel Durumu") ?? "").toUpperCase().includes("IZIN") ? "IZINLI" :
+                        String(col(row, "Personel Durumu") ?? "").toUpperCase().includes("PAS") ? "PASIF" : "CALISAN",
             }));
 
             const valid = mapped.filter(r => r.sicilNo && r.egitimKodu && r.baslamaTarihi);
             const skipped = mapped.length - valid.length;
             setSkippedCount(skipped);
             setPreviewData(valid);
-
-            // Debug: İlk satır ham veriyi göster
-            if (jsonData[0]) {
-                const sample = jsonData[0];
-                const dateCol = col(sample, "Egt Bas Trh", "Başlama Tarihi", "baslamaTarihi", "Baslama Tarihi");
-                const timeCol = col(sample, "Egitim Baslama Saati", "Eğitim Başlama Saati", "Başlama Saati", "baslamaSaati");
-                setRawDebug(
-                    `Tarih ham değer: ${JSON.stringify(dateCol)} (${typeof dateCol}) → ${parseTurkishDate(dateCol)} | ` +
-                    `Saat ham değer: ${JSON.stringify(timeCol)} (${typeof timeCol}) → ${parseExcelTime(timeCol)}`
-                );
-            }
 
             if (valid.length === 0 && mapped.length > 0) {
                 const sampleRow = jsonData[0];
@@ -341,9 +371,9 @@ export default function AttendanceImportPage() {
             }
         } catch (err: any) {
             console.error("Excel parse hatası:", err);
-            setParseError(`Parse hatası: ${err?.message || "Bilinmeyen hata"}`);
-            setPreviewData([]);
-        }
+                setParseError(`Parse hatası: ${err?.message || "Bilinmeyen hata"}`);
+                setPreviewData([]);
+            }
     };
 
     const handleImport = async () => {
@@ -480,13 +510,6 @@ export default function AttendanceImportPage() {
                     </div>
                 )}
 
-                {/* Debug: Raw Data Info */}
-                {rawDebug && (
-                    <div className="mb-4 p-3 bg-gray-100 border border-gray-300 rounded-lg">
-                        <p className="text-xs font-mono text-gray-600 break-all">{rawDebug}</p>
-                    </div>
-                )}
-
                 {/* Parse Error */}
                 {parseError && (
                     <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
@@ -511,21 +534,33 @@ export default function AttendanceImportPage() {
 
                 <div className="mb-4 p-4 bg-gradient-to-r from-emerald-50 to-teal-50 rounded-lg border border-emerald-100">
                     <h3 className="font-semibold text-emerald-800 mb-2">Excel Sütun Formatı</h3>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                         <div>
                             <p className="font-medium text-gray-700">Zorunlu Alanlar:</p>
                             <ul className="list-disc list-inside text-gray-600 ml-2">
                                 <li><code className="bg-white px-1 rounded">Sicil No</code></li>
-                                <li><code className="bg-white px-1 rounded">Eğitim Kodu</code></li>
-                                <li><code className="bg-white px-1 rounded">Başlama Tarihi</code> (DD.MM.YYYY)</li>
+                                <li><code className="bg-white px-1 rounded">Egitim Kodu</code> veya <code className="bg-white px-1 rounded">Egitim Kodu (Yeni)</code></li>
+                                <li><code className="bg-white px-1 rounded">Egt Bas Trh</code> / <code className="bg-white px-1 rounded">Başlama Tarihi</code></li>
+                            </ul>
+                        </div>
+                        <div>
+                            <p className="font-medium text-gray-700">Varsayılanlar:</p>
+                            <ul className="list-disc list-inside text-gray-600 ml-2">
+                                <li><code className="bg-white px-1 rounded">Egt Bit Trh</code>: başlangıç tarihi</li>
+                                <li><code className="bg-white px-1 rounded">Egitim Baslama Saati</code>: <code className="bg-white px-1 rounded">09:00</code></li>
+                                <li><code className="bg-white px-1 rounded">Egitim Bitis Saati</code>: <code className="bg-white px-1 rounded">17:00</code></li>
+                                <li><code className="bg-white px-1 rounded">Ic Dis Egitim</code>: <code className="bg-white px-1 rounded">IC</code></li>
+                                <li><code className="bg-white px-1 rounded">Sonuc Belgesi</code>: <code className="bg-white px-1 rounded">EGITIM_KATILIM_CIZELGESI</code></li>
+                                <li><code className="bg-white px-1 rounded">Personel Durumu</code>: <code className="bg-white px-1 rounded">CALISAN</code></li>
                             </ul>
                         </div>
                         <div>
                             <p className="font-medium text-gray-700">Opsiyonel Alanlar:</p>
                             <ul className="list-disc list-inside text-gray-600 ml-2">
-                                <li><code className="bg-white px-1 rounded">Bitiş Tarihi</code>, <code className="bg-white px-1 rounded">Saatler</code></li>
-                                <li><code className="bg-white px-1 rounded">Eğitim Yeri</code>, <code className="bg-white px-1 rounded">İç/Dış</code></li>
-                                <li><code className="bg-white px-1 rounded">Belge Türü</code>, <code className="bg-white px-1 rounded">Eğitmen Sicil</code></li>
+                                <li>Detaylı liste sütunları desteklenir (<code className="bg-white px-1 rounded">Yerlesim</code>, <code className="bg-white px-1 rounded">Organizasyon</code>, <code className="bg-white px-1 rounded">Şirket Adı</code>...)</li>
+                                <li><code className="bg-white px-1 rounded">Eğitmen Adı</code>: baştaki sicil numarası alınır</li>
+                                <li><code className="bg-white px-1 rounded">Veri Giris Tarihi</code> yoksa import anı kullanılır</li>
+                                <li>Personel kaydı yoksa otomatik personel oluşturulur</li>
                             </ul>
                         </div>
                     </div>
@@ -540,41 +575,91 @@ export default function AttendanceImportPage() {
                             Önizleme
                         </h3>
                         <div className="max-h-80 overflow-auto border rounded-lg">
-                            <table className="min-w-full divide-y divide-gray-200 text-sm">
+                            <table className="min-w-full divide-y divide-gray-200 text-xs whitespace-nowrap">
                                 <thead className="bg-gray-50 sticky top-0">
                                     <tr>
+                                        <th className="px-3 py-3 text-left font-semibold text-gray-600">S. No</th>
                                         <th className="px-3 py-3 text-left font-semibold text-gray-600">Sicil No</th>
-                                        <th className="px-3 py-3 text-left font-semibold text-gray-600">Eğitim Kodu</th>
-                                        <th className="px-3 py-3 text-left font-semibold text-gray-600">Başlama</th>
-                                        <th className="px-3 py-3 text-left font-semibold text-gray-600">Bitiş</th>
-                                        <th className="px-3 py-3 text-left font-semibold text-gray-600">Saat</th>
-                                        <th className="px-3 py-3 text-left font-semibold text-gray-600">Eğitim Yeri</th>
-                                        <th className="px-3 py-3 text-left font-semibold text-gray-600">İç/Dış</th>
+                                        <th className="px-3 py-3 text-left font-semibold text-gray-600">Adı Soyadı</th>
+                                        <th className="px-3 py-3 text-left font-semibold text-gray-600">Tc Kimlik No</th>
+                                        <th className="px-3 py-3 text-left font-semibold text-gray-600">Yerlesim</th>
+                                        <th className="px-3 py-3 text-left font-semibold text-gray-600">Organizasyon</th>
+                                        <th className="px-3 py-3 text-left font-semibold text-gray-600">Şirket Adı</th>
+                                        <th className="px-3 py-3 text-left font-semibold text-gray-600">Görevi</th>
+                                        <th className="px-3 py-3 text-left font-semibold text-gray-600">Vardiya Tipi</th>
+                                        <th className="px-3 py-3 text-left font-semibold text-gray-600">Proje Adi</th>
+                                        <th className="px-3 py-3 text-left font-semibold text-gray-600">Calisma Grubu</th>
+                                        <th className="px-3 py-3 text-left font-semibold text-gray-600">Terminal</th>
+                                        <th className="px-3 py-3 text-left font-semibold text-gray-600">Bolge Kodu</th>
+                                        <th className="px-3 py-3 text-left font-semibold text-gray-600">Egitim Kodu</th>
+                                        <th className="px-3 py-3 text-left font-semibold text-gray-600">Egitim Kodu (Yeni)</th>
+                                        <th className="px-3 py-3 text-left font-semibold text-gray-600">Egt Bas Trh</th>
+                                        <th className="px-3 py-3 text-left font-semibold text-gray-600">Egt Bit Trh</th>
+                                        <th className="px-3 py-3 text-left font-semibold text-gray-600">Egitim Suresi</th>
+                                        <th className="px-3 py-3 text-left font-semibold text-gray-600">Egitim Baslama Saati</th>
+                                        <th className="px-3 py-3 text-left font-semibold text-gray-600">Egitim Bitis Saati</th>
+                                        <th className="px-3 py-3 text-left font-semibold text-gray-600">Egitimin Yeri</th>
+                                        <th className="px-3 py-3 text-left font-semibold text-gray-600">Eğitmen Adı</th>
+                                        <th className="px-3 py-3 text-left font-semibold text-gray-600">Sonuc Belgesi</th>
+                                        <th className="px-3 py-3 text-left font-semibold text-gray-600">Ic Dis Egitim</th>
+                                        <th className="px-3 py-3 text-left font-semibold text-gray-600">Egitim Detay Aciklama</th>
+                                        <th className="px-3 py-3 text-left font-semibold text-gray-600">Egitim Detay Açıklama (Yeni)</th>
+                                        <th className="px-3 py-3 text-left font-semibold text-gray-600">Egitim Test Sonucu</th>
+                                        <th className="px-3 py-3 text-left font-semibold text-gray-600">Tazeleme Planlama Tarihi</th>
+                                        <th className="px-3 py-3 text-left font-semibold text-gray-600">Veriyi Giren Sicil</th>
+                                        <th className="px-3 py-3 text-left font-semibold text-gray-600">Veri Giris Tarihi</th>
+                                        <th className="px-3 py-3 text-left font-semibold text-gray-600">Personel Durumu</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 bg-white">
                                     {previewData.slice(0, 20).map((row, i) => (
                                         <tr key={i} className="hover:bg-gray-50">
+                                            <td className="px-3 py-2 text-gray-500">{i + 1}</td>
                                             <td className="px-3 py-2">
                                                 <span className="font-mono bg-gray-100 px-2 py-0.5 rounded text-xs">
                                                     {row.sicilNo}
                                                 </span>
                                             </td>
+                                            <td className="px-3 py-2 text-gray-600">{row.adiSoyadi || "-"}</td>
+                                            <td className="px-3 py-2 text-gray-600">{row.tcKimlikNo || "-"}</td>
+                                            <td className="px-3 py-2 text-gray-600">{row.yerlesim || "-"}</td>
+                                            <td className="px-3 py-2 text-gray-600">{row.organizasyon || "-"}</td>
+                                            <td className="px-3 py-2 text-gray-600">{row.sirketAdi || "-"}</td>
+                                            <td className="px-3 py-2 text-gray-600">{row.gorevi || "-"}</td>
+                                            <td className="px-3 py-2 text-gray-600">{row.vardiyaTipi || "-"}</td>
+                                            <td className="px-3 py-2 text-gray-600">{row.projeAdi || "-"}</td>
+                                            <td className="px-3 py-2 text-gray-600">{row.calismaGrubu || "-"}</td>
+                                            <td className="px-3 py-2 text-gray-600">{row.terminal || "-"}</td>
+                                            <td className="px-3 py-2 text-gray-600">{row.bolgeKodu || "-"}</td>
                                             <td className="px-3 py-2">
                                                 <span className="font-mono bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-xs">
-                                                    {row.egitimKodu}
+                                                    {row.egitimKodu || "-"}
                                                 </span>
                                             </td>
-                                            <td className="px-3 py-2 text-gray-600">{row.baslamaTarihi}</td>
+                                            <td className="px-3 py-2 text-gray-600">{row.egitimKoduYeni || "-"}</td>
+                                            <td className="px-3 py-2 text-gray-600">{row.baslamaTarihi || "-"}</td>
                                             <td className="px-3 py-2 text-gray-500">{row.bitisTarihi || "-"}</td>
-                                            <td className="px-3 py-2 text-gray-500 text-xs">{row.baslamaSaati}-{row.bitisSaati}</td>
+                                            <td className="px-3 py-2 text-gray-500">{row.egitimSuresi || "-"}</td>
+                                            <td className="px-3 py-2 text-gray-500">{row.baslamaSaati || "-"}</td>
+                                            <td className="px-3 py-2 text-gray-500">{row.bitisSaati || "-"}</td>
                                             <td className="px-3 py-2 text-gray-500">{row.egitimYeri || "-"}</td>
-                                            <td className="px-3 py-2">
-                                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                                                    row.icDisEgitim === "DIS" ? "bg-orange-100 text-orange-700" : "bg-blue-100 text-blue-700"
-                                                }`}>
-                                                    {row.icDisEgitim === "DIS" ? "Dış" : "İç"}
-                                                </span>
+                                            <td className="px-3 py-2 text-gray-500">{row.egitmenSicil || "-"}</td>
+                                            <td className="px-3 py-2 text-gray-500">{row.sonucBelgesiTuru || "-"}</td>
+                                            <td className="px-3 py-2 text-gray-500">{row.icDisEgitim === "DIS" ? "Dış" : "İç"}</td>
+                                            <td className="px-3 py-2 text-gray-500">{row.egitimDetayAciklama || "-"}</td>
+                                            <td className="px-3 py-2 text-gray-500">{row.egitimDetayAciklamaYeni || "-"}</td>
+                                            <td className="px-3 py-2 text-gray-500">{row.egitimTestSonucu || "-"}</td>
+                                            <td className="px-3 py-2 text-gray-500">{row.tazelemePlanlamaTarihi || "-"}</td>
+                                            <td className="px-3 py-2 text-gray-500">{row.veriyiGirenSicil || "-"}</td>
+                                            <td className="px-3 py-2 text-gray-500">{row.veriGirisTarihi || "-"}</td>
+                                            <td className="px-3 py-2 text-gray-500">
+                                                {row.personelDurumu === "AYRILDI"
+                                                    ? "Ayrıldı"
+                                                    : row.personelDurumu === "IZINLI"
+                                                        ? "İzinli"
+                                                        : row.personelDurumu === "PASIF"
+                                                            ? "Pasif"
+                                                            : "Çalışan"}
                                             </td>
                                         </tr>
                                     ))}
@@ -648,3 +733,5 @@ export default function AttendanceImportPage() {
         </div>
     );
 }
+
+

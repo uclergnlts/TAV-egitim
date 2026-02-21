@@ -46,6 +46,8 @@ interface PersonnelInfo {
     sicil_no: string;
     fullName: string;
     gorevi: string;
+    tcKimlikNo?: string;
+    grup?: string;
     found: boolean;
 }
 
@@ -103,6 +105,8 @@ export default function ChefDashboard() {
     const [loading, setLoading] = useState(false);
     const [successMsg, setSuccessMsg] = useState("");
     const [errorMsg, setErrorMsg] = useState("");
+    const [invalidSicils, setInvalidSicils] = useState<string[]>([]);
+    const [isSicilListValid, setIsSicilListValid] = useState(true);
 
     // EDIT MODAL STATE
     const [editMode, setEditMode] = useState<EditMode>('NONE');
@@ -284,6 +288,11 @@ export default function ChefDashboard() {
 
         const topicName = training?.topics.find(t => t.id === selectedTopicId)?.title || "";
         const personnelDetails = await fetchPersonnelDetails(sicilList);
+        const notFoundSicils = personnelDetails.filter(p => !p.found).map(p => p.sicil_no);
+        if (notFoundSicils.length > 0) {
+            setErrorMsg(`Listede sistemde bulunamayan siciller var: ${notFoundSicils.slice(0, 10).join(", ")}`);
+            return;
+        }
 
         const newRecord: PendingRecord = {
             id: crypto.randomUUID(),
@@ -324,6 +333,8 @@ export default function ChefDashboard() {
                     sicil_no: string;
                     fullName: string;
                     gorevi: string;
+                    tc_kimlik_no?: string;
+                    grup?: string;
                 }
                 const foundMap = new Map<string, PersonnelLookup>(
                     data.data.map((p: PersonnelLookup) => [p.sicil_no, p])
@@ -331,7 +342,14 @@ export default function ChefDashboard() {
                 return sicils.map(sicil => {
                     const found = foundMap.get(sicil);
                     return found
-                        ? { sicil_no: sicil, fullName: found.fullName, gorevi: found.gorevi, found: true }
+                        ? {
+                            sicil_no: sicil,
+                            fullName: found.fullName,
+                            gorevi: found.gorevi,
+                            tcKimlikNo: found.tc_kimlik_no,
+                            grup: found.grup,
+                            found: true
+                        }
                         : { sicil_no: sicil, fullName: "Bulunamadı", gorevi: "-", found: false };
                 });
             }
@@ -444,6 +462,14 @@ export default function ChefDashboard() {
 
     const handleBulkSave = async () => {
         if (pendingRecords.length === 0) return;
+        const unresolvedSicils = pendingRecords
+            .flatMap(record => record.personnel_details)
+            .filter(person => !person.found)
+            .map(person => person.sicil_no);
+        if (unresolvedSicils.length > 0) {
+            setErrorMsg(`Kayit oncesi duzeltin. Bulunamayan siciller: ${Array.from(new Set(unresolvedSicils)).slice(0, 10).join(", ")}`);
+            return;
+        }
         setLoading(true);
 
         const flatPayload: any[] = [];
@@ -750,7 +776,8 @@ export default function ChefDashboard() {
                             <SicilValidator
                                 sicilNos={sicilNos}
                                 onValidationChange={(results, isValid) => {
-                                    // Validation state can be used for form submission control
+                                    setIsSicilListValid(isValid || results.length === 0);
+                                    setInvalidSicils(results.filter(r => !r.found).map(r => r.sicil_no));
                                 }}
                             />
                             
@@ -765,6 +792,11 @@ export default function ChefDashboard() {
                                     Temizle
                                 </button>
                             </div>
+                            {!isSicilListValid && invalidSicils.length > 0 && (
+                                <div className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg border border-red-100">
+                                    Bulunamayan siciller kaydedilemez: {invalidSicils.slice(0, 10).join(", ")}
+                                </div>
+                            )}
                         </div>
                     </div>
 

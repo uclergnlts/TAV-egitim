@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface Attendance {
@@ -22,7 +22,6 @@ interface EditFormData {
     egitim_yeri: string;
 }
 
-// API functions
 async function fetchMyAttendances(): Promise<Attendance[]> {
     const res = await fetch("/api/attendances/my");
     const data = await res.json();
@@ -31,18 +30,18 @@ async function fetchMyAttendances(): Promise<Attendance[]> {
 }
 
 async function deleteAttendance(id: string): Promise<void> {
-    const res = await fetch(`/api/attendances/${id}`, {
+    const res = await fetch(`/api/attendances?id=${encodeURIComponent(id)}`, {
         method: "DELETE",
     });
     const data = await res.json();
     if (!data.success) throw new Error(data.message);
 }
 
-async function updateAttendance(id: string, data: Partial<Attendance>): Promise<void> {
-    const res = await fetch(`/api/attendances/${id}`, {
+async function updateAttendanceField(id: string, field: string, value: string | number): Promise<void> {
+    const res = await fetch(`/api/attendances`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ id, field, value }),
     });
     const result = await res.json();
     if (!result.success) throw new Error(result.message);
@@ -56,37 +55,39 @@ export default function ChefHistoryPage() {
     const [dateFilter, setDateFilter] = useState("");
 
     const { data: attendances = [], isLoading, error } = useQuery({
-        queryKey: ['my-attendances'],
+        queryKey: ["my-attendances"],
         queryFn: fetchMyAttendances,
     });
 
     const deleteMutation = useMutation({
         mutationFn: deleteAttendance,
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['my-attendances'] });
+            queryClient.invalidateQueries({ queryKey: ["my-attendances"] });
         },
     });
 
     const updateMutation = useMutation({
-        mutationFn: ({ id, data }: { id: string; data: Partial<Attendance> }) => updateAttendance(id, data),
+        mutationFn: async ({ id, data }: { id: string; data: EditFormData }) => {
+            await Promise.all([
+                updateAttendanceField(id, "baslama_tarihi", data.baslama_tarihi),
+                updateAttendanceField(id, "egitim_suresi_dk", data.egitim_suresi_dk),
+                updateAttendanceField(id, "egitim_yeri", data.egitim_yeri),
+            ]);
+        },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['my-attendances'] });
+            queryClient.invalidateQueries({ queryKey: ["my-attendances"] });
             setEditingId(null);
             setEditForm(null);
         },
     });
 
-    // Filter attendances
-    const filteredAttendances = attendances.filter(att => {
-        const matchesSearch = 
+    const filteredAttendances = attendances.filter((att) => {
+        const matchesSearch =
             att.ad_soyad.toLowerCase().includes(searchTerm.toLowerCase()) ||
             att.sicil_no.includes(searchTerm) ||
             att.egitim_kodu.toLowerCase().includes(searchTerm.toLowerCase());
-        
-        const matchesDate = dateFilter 
-            ? att.baslama_tarihi.startsWith(dateFilter)
-            : true;
-        
+
+        const matchesDate = dateFilter ? att.baslama_tarihi.startsWith(dateFilter) : true;
         return matchesSearch && matchesDate;
     });
 
@@ -102,13 +103,21 @@ export default function ChefHistoryPage() {
 
     const handleSave = () => {
         if (!editForm) return;
+        if (!editForm.baslama_tarihi?.trim()) {
+            alert("Başlama tarihi zorunludur.");
+            return;
+        }
+        if (!editForm.egitim_yeri?.trim()) {
+            alert("Eğitim yeri zorunludur.");
+            return;
+        }
+        if (!Number.isFinite(editForm.egitim_suresi_dk) || editForm.egitim_suresi_dk <= 0) {
+            alert("Eğitim süresi 0'dan büyük olmalı.");
+            return;
+        }
         updateMutation.mutate({
             id: editForm.id,
-            data: {
-                baslama_tarihi: editForm.baslama_tarihi,
-                egitim_suresi_dk: editForm.egitim_suresi_dk,
-                egitim_yeri: editForm.egitim_yeri,
-            }
+            data: editForm,
         });
     };
 
@@ -118,10 +127,9 @@ export default function ChefHistoryPage() {
         }
     };
 
-    // Statistics
     const totalRecords = attendances.length;
     const totalHours = Math.round(attendances.reduce((sum, a) => sum + a.egitim_suresi_dk, 0) / 60);
-    const uniquePersonnel = new Set(attendances.map(a => a.sicil_no)).size;
+    const uniquePersonnel = new Set(attendances.map((a) => a.sicil_no)).size;
 
     if (isLoading) {
         return (
@@ -135,8 +143,8 @@ export default function ChefHistoryPage() {
         return (
             <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
                 <p className="text-red-600">Kayıtlar yüklenirken bir hata oluştu.</p>
-                <button 
-                    onClick={() => queryClient.invalidateQueries({ queryKey: ['my-attendances'] })}
+                <button
+                    onClick={() => queryClient.invalidateQueries({ queryKey: ["my-attendances"] })}
                     className="mt-3 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
                 >
                     Tekrar Dene
@@ -147,7 +155,6 @@ export default function ChefHistoryPage() {
 
     return (
         <div className="space-y-6">
-            {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Kayıt Geçmişi</h1>
@@ -155,7 +162,6 @@ export default function ChefHistoryPage() {
                 </div>
             </div>
 
-            {/* Statistics Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-white rounded-xl shadow-sm border p-4">
                     <div className="text-sm text-gray-500">Toplam Kayıt</div>
@@ -171,7 +177,6 @@ export default function ChefHistoryPage() {
                 </div>
             </div>
 
-            {/* Filters */}
             <div className="bg-white rounded-xl shadow-sm border p-4">
                 <div className="flex flex-col md:flex-row gap-4">
                     <div className="flex-1">
@@ -204,7 +209,6 @@ export default function ChefHistoryPage() {
                 </div>
             </div>
 
-            {/* Table */}
             {filteredAttendances.length === 0 ? (
                 <div className="bg-white rounded-xl shadow-sm border p-8 text-center">
                     <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -218,24 +222,12 @@ export default function ChefHistoryPage() {
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                                 <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Sicil No
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Ad Soyad
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Eğitim Kodu
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Süre (dk)
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Eğitim Tarihi
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Eğitim Yeri
-                                    </th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sicil No</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ad Soyad</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Eğitim Kodu</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Süre (dk)</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Eğitim Tarihi</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Eğitim Yeri</th>
                                     <th className="relative px-6 py-3">
                                         <span className="sr-only">İşlemler</span>
                                     </th>
@@ -245,25 +237,22 @@ export default function ChefHistoryPage() {
                                 {filteredAttendances.map((attendance) => (
                                     <tr key={attendance.id} className="hover:bg-gray-50">
                                         {editingId === attendance.id ? (
-                                            // Edit Mode
                                             <>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                    {attendance.sicil_no}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                    {attendance.ad_soyad}
-                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{attendance.sicil_no}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{attendance.ad_soyad}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
-                                                    <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded">
-                                                        {attendance.egitim_kodu}
-                                                    </span>
+                                                    <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded">{attendance.egitim_kodu}</span>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <input
                                                         type="number"
                                                         title="Eğitim Süresi (dk)"
                                                         value={editForm?.egitim_suresi_dk}
-                                                        onChange={(e) => setEditForm(prev => prev ? { ...prev, egitim_suresi_dk: parseInt(e.target.value) || 0 } : null)}
+                                                        onChange={(e) =>
+                                                            setEditForm((prev) =>
+                                                                prev ? { ...prev, egitim_suresi_dk: parseInt(e.target.value, 10) || 0 } : null
+                                                            )
+                                                        }
                                                         className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
                                                     />
                                                 </td>
@@ -272,7 +261,7 @@ export default function ChefHistoryPage() {
                                                         type="date"
                                                         title="Eğitim Tarihi"
                                                         value={editForm?.baslama_tarihi}
-                                                        onChange={(e) => setEditForm(prev => prev ? { ...prev, baslama_tarihi: e.target.value } : null)}
+                                                        onChange={(e) => setEditForm((prev) => (prev ? { ...prev, baslama_tarihi: e.target.value } : null))}
                                                         className="px-2 py-1 border border-gray-300 rounded text-sm"
                                                     />
                                                 </td>
@@ -281,7 +270,7 @@ export default function ChefHistoryPage() {
                                                         type="text"
                                                         title="Eğitim Yeri"
                                                         value={editForm?.egitim_yeri}
-                                                        onChange={(e) => setEditForm(prev => prev ? { ...prev, egitim_yeri: e.target.value } : null)}
+                                                        onChange={(e) => setEditForm((prev) => (prev ? { ...prev, egitim_yeri: e.target.value } : null))}
                                                         className="w-32 px-2 py-1 border border-gray-300 rounded text-sm"
                                                     />
                                                 </td>
@@ -291,7 +280,7 @@ export default function ChefHistoryPage() {
                                                         disabled={updateMutation.isPending}
                                                         className="text-green-600 hover:text-green-900 mr-3"
                                                     >
-                                                        {updateMutation.isPending ? '...' : 'Kaydet'}
+                                                        {updateMutation.isPending ? "..." : "Kaydet"}
                                                     </button>
                                                     <button
                                                         onClick={() => {
@@ -305,28 +294,17 @@ export default function ChefHistoryPage() {
                                                 </td>
                                             </>
                                         ) : (
-                                            // View Mode
                                             <>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-mono">
-                                                    {attendance.sicil_no}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                    {attendance.ad_soyad}
-                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-mono">{attendance.sicil_no}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{attendance.ad_soyad}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
-                                                    <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded">
-                                                        {attendance.egitim_kodu}
-                                                    </span>
+                                                    <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded">{attendance.egitim_kodu}</span>
                                                 </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                    {attendance.egitim_suresi_dk}
-                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{attendance.egitim_suresi_dk}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                     {new Date(attendance.baslama_tarihi).toLocaleDateString("tr-TR")}
                                                 </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                    {attendance.egitim_yeri || "-"}
-                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{attendance.egitim_yeri || "-"}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                                     <button
                                                         onClick={() => handleEdit(attendance)}
@@ -355,8 +333,7 @@ export default function ChefHistoryPage() {
                             </tbody>
                         </table>
                     </div>
-                    
-                    {/* Summary */}
+
                     <div className="bg-gray-50 px-6 py-3 border-t border-gray-200 text-sm text-gray-500">
                         Toplam {filteredAttendances.length} kayıt gösteriliyor
                         {filteredAttendances.length !== attendances.length && ` (toplam ${attendances.length})`}

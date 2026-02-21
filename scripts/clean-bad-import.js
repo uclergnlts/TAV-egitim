@@ -9,15 +9,10 @@ require('dotenv').config({ path: '.env.local' });
 async function clean() {
     console.log('🧹 Temizlik başlıyor...');
 
-    const url = process.env.TURSO_DATABASE_URL;
+    const url = process.env.TURSO_DATABASE_URL || 'file:local.db';
     const authToken = process.env.TURSO_AUTH_TOKEN;
 
-    if (!url) {
-        console.error('❌ TURSO_DATABASE_URL eksik');
-        process.exit(1);
-    }
-
-    const client = createClient({ url, authToken });
+    const client = createClient({ url, ...(authToken ? { authToken } : {}) });
 
     // 1. İsmi boş olan attendances sil
     const attResult = await client.execute(`
@@ -43,3 +38,5 @@ async function clean() {
 }
 
 clean();
+
+

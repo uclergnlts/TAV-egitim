@@ -33,6 +33,7 @@ export async function POST(request: NextRequest) {
         const result = await db.select({
             sicil_no: personnel.sicilNo,
             fullName: personnel.fullName,
+            tc_kimlik_no: personnel.tcKimlikNo,
             gorevi: personnel.gorevi,
             grup: personnel.grup,
         })
