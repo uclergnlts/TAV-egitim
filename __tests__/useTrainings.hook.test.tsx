@@ -124,5 +124,37 @@ describe("useTrainings hooks", () => {
             hook.result.current.mutateAsync({ code: "X", name: "Y" })
         ).rejects.toThrow("failed");
     });
-});
 
+    it("handles trainings list query error", async () => {
+        global.fetch = vi.fn().mockResolvedValue({
+            ok: false,
+            json: async () => ({ message: "list failed" }),
+        }) as unknown as typeof fetch;
+
+        const { useTrainings } = await import("@/lib/hooks/useTrainings");
+        const { result } = renderHook(() => useTrainings(), { wrapper: createWrapper() });
+        await waitFor(() => expect(result.current.isError).toBe(true));
+    });
+
+    it("throws default update/delete error messages when response is not ok and no message", async () => {
+        global.fetch = vi
+            .fn()
+            .mockResolvedValueOnce({
+                ok: false,
+                json: async () => ({}),
+            })
+            .mockResolvedValueOnce({
+                ok: false,
+                json: async () => ({}),
+            }) as unknown as typeof fetch;
+
+        const { useUpdateTraining, useDeleteTraining } = await import("@/lib/hooks/useTrainings");
+        const updateHook = renderHook(() => useUpdateTraining(), { wrapper: createWrapper() });
+        const deleteHook = renderHook(() => useDeleteTraining(), { wrapper: createWrapper() });
+
+        await expect(
+            updateHook.result.current.mutateAsync({ id: "t1", data: { name: "x" } })
+        ).rejects.toThrow("Eğitim güncellenemedi");
+        await expect(deleteHook.result.current.mutateAsync("t1")).rejects.toThrow("Eğitim silinemedi");
+    });
+});

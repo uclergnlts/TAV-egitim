@@ -33,6 +33,21 @@ describe("queryClient advanced helpers", () => {
         );
     });
 
+    it("runs real prefetch query functions and hits definition endpoints", async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({ success: true }),
+        });
+        global.fetch = fetchMock as unknown as typeof fetch;
+
+        const mod = await import("@/lib/queryClient");
+        await mod.queryClient.clear();
+        await mod.prefetchCommonData();
+
+        expect(fetchMock).toHaveBeenCalledWith("/api/definitions/groups");
+        expect(fetchMock).toHaveBeenCalledWith("/api/definitions/locations");
+    });
+
     it("invalidates personnel/training/attendance/report caches", async () => {
         const mod = await import("@/lib/queryClient");
         const invalidateSpy = vi
@@ -50,5 +65,23 @@ describe("queryClient advanced helpers", () => {
         expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: mod.queryKeys.dashboard.all });
         expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: mod.queryKeys.reports.all });
     });
-});
 
+    it("covers remaining query key builders", async () => {
+        const mod = await import("@/lib/queryClient");
+
+        expect(mod.queryKeys.personnel.detail("p1")).toEqual(["personnel", "detail", "p1"]);
+        expect(mod.queryKeys.trainings.list()).toEqual(["trainings", "list"]);
+        expect(mod.queryKeys.trainings.list({ q: "x" })).toEqual(["trainings", "list", { q: "x" }]);
+        expect(mod.queryKeys.trainers.list()).toEqual(["trainers", "list"]);
+        expect(mod.queryKeys.attendances.list({ page: 1 })).toEqual(["attendances", "list", { page: 1 }]);
+        expect(mod.queryKeys.attendances.my()).toEqual(["attendances", "my"]);
+        expect(mod.queryKeys.reports.monthly(2025, 1)).toEqual(["reports", "monthly", 2025, 1]);
+        expect(mod.queryKeys.reports.yearly(2025)).toEqual(["reports", "yearly", 2025]);
+        expect(mod.queryKeys.reports.detail({ sicil: "1001" })).toEqual(["reports", "detail", { sicil: "1001" }]);
+        expect(mod.queryKeys.reports.statistics()).toEqual(["reports", "statistics"]);
+        expect(mod.queryKeys.users.list()).toEqual(["users", "list"]);
+        expect(mod.queryKeys.users.me()).toEqual(["users", "me"]);
+        expect(mod.queryKeys.auditLogs.list(3)).toEqual(["auditLogs", "list", 3]);
+        expect(mod.queryKeys.definitions.documents()).toEqual(["definitions", "documents"]);
+    });
+});
