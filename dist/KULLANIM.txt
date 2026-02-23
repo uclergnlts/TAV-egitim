@@ -1,0 +1,26 @@
+TAV EGITIM - AG KLASORU KULLANIMI
+=================================
+
+1) KURULUM (TEK SEFER)
+- Bu "dist" klasorunun tum icerigini ortak ag klasorune kopyalayin.
+- Ornek: \\TRESBFP01\esb guvenlik\EGITIM&DENETIM\ORTAK\TAV-EGITIM\
+- Kullanici bilgisayarinda ek kurulum gerekmez.
+
+2) UYGULAMAYI ACMA
+- start.bat dosyasina cift tiklayin.
+- Sistem tarayicida otomatik olarak acilir.
+
+3) UYGULAMAYI KAPATMA
+- kapat.bat dosyasina cift tiklayin.
+
+4) GUNCELLEME
+- Yeni surum dosyalarini "guncelleme" klasorune koyun.
+- update.bat dosyasina cift tiklayin.
+- Mevcut local.db korunur.
+
+5) ONEMLI NOTLAR
+- Ag klasorunde kullanicilarin bu klasore Yazma izni olmali
+  (local.db ve yedek dosyalari icin).
+- Antivirus / guvenlik yazilimi node.exe veya .bat calismasini engellerse
+  BT ekibinden klasor bazli istisna isteyin.
+- Yönetici yetkisi gerekmez.
