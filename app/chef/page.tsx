@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import * as XLSX from "xlsx";
@@ -77,6 +77,10 @@ type EditMode = 'NONE' | 'TRAINING' | 'DATE' | 'TRAINER' | 'PERSONNEL';
 
 export default function ChefDashboard() {
     const router = useRouter();
+    const trainingSectionRef = useRef<HTMLDivElement>(null);
+    const dateSectionRef = useRef<HTMLDivElement>(null);
+    const participantsSectionRef = useRef<HTMLDivElement>(null);
+    const pendingTableRef = useRef<HTMLDivElement>(null);
 
     // Data
     const [trainings, setTrainings] = useState<Training[]>([]);
@@ -270,11 +274,13 @@ export default function ChefDashboard() {
         const sicilList = sicilNos.split(/[\n,]+/).map(s => s.trim()).filter(s => s.length > 0);
         if (sicilList.length === 0) {
             setErrorMsg("Lütfen en az bir sicil numarası giriniz.");
+            scrollToSection(participantsSectionRef);
             return;
         }
 
         if (!selectedTrainingId || !selectedTrainerId || !trainingLocation) {
             setErrorMsg("Lütfen tüm zorunlu alanları doldurunuz (*)");
+            scrollToSection(trainingSectionRef);
             return;
         }
 
@@ -283,6 +289,7 @@ export default function ChefDashboard() {
 
         if (training?.has_topics && !selectedTopicId) {
             setErrorMsg("Bu eğitim için Alt Başlık seçimi zorunludur.");
+            scrollToSection(trainingSectionRef);
             return;
         }
 
@@ -291,6 +298,7 @@ export default function ChefDashboard() {
         const notFoundSicils = personnelDetails.filter(p => !p.found).map(p => p.sicil_no);
         if (notFoundSicils.length > 0) {
             setErrorMsg(`Listede sistemde bulunamayan siciller var: ${notFoundSicils.slice(0, 10).join(", ")}`);
+            scrollToSection(participantsSectionRef);
             return;
         }
 
@@ -468,6 +476,7 @@ export default function ChefDashboard() {
             .map(person => person.sicil_no);
         if (unresolvedSicils.length > 0) {
             setErrorMsg(`Kayit oncesi duzeltin. Bulunamayan siciller: ${Array.from(new Set(unresolvedSicils)).slice(0, 10).join(", ")}`);
+            scrollToSection(pendingTableRef);
             return;
         }
         setLoading(true);
@@ -582,11 +591,59 @@ export default function ChefDashboard() {
     };
 
     const selectedTraining = trainings.find(t => t.id === selectedTrainingId);
+    const typedSicilCount = sicilNos.split(/[\n,]+/).filter(s => s.trim().length > 0).length;
+    const totalPendingPersonnel = pendingRecords.reduce((sum, record) => sum + record.personnel_details.length, 0);
+    const unresolvedPendingCount = pendingRecords.reduce(
+        (sum, record) => sum + record.personnel_details.filter(person => !person.found).length,
+        0
+    );
+    const readyPendingCount = totalPendingPersonnel - unresolvedPendingCount;
+    const canAddToList =
+        typedSicilCount > 0 &&
+        Boolean(selectedTrainingId) &&
+        Boolean(selectedTrainerId) &&
+        Boolean(trainingLocation) &&
+        isSicilListValid;
+    const trainingStepDone =
+        Boolean(selectedTrainingId) &&
+        (!selectedTraining?.has_topics || Boolean(selectedTopicId)) &&
+        Boolean(selectedTrainerId) &&
+        Boolean(trainingLocation);
+    const dateStepDone = Boolean(startDate && endDate && startTime && endTime);
+    const participantStepDone = typedSicilCount > 0 && isSicilListValid;
+    const listStepDone = pendingRecords.length > 0;
+    const finalizeStepDone = listStepDone && unresolvedPendingCount === 0;
+    const completedSteps = [trainingStepDone, dateStepDone, participantStepDone, listStepDone, finalizeStepDone].filter(Boolean).length;
+
+    const scrollToSection = (ref: React.RefObject<HTMLDivElement | null>) => {
+        if (!ref.current) return;
+        ref.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+
+    const formIssues = useMemo(() => {
+        const issues: Array<{ key: string; title: string; detail: string; ref: React.RefObject<HTMLDivElement | null> }> = [];
+        if (!selectedTrainingId) issues.push({ key: "training", title: "Eğitim seçilmedi", detail: "Eğitim Bilgileri bölümünden eğitim seçin.", ref: trainingSectionRef });
+        if (selectedTraining?.has_topics && !selectedTopicId) issues.push({ key: "topic", title: "Alt başlık eksik", detail: "Bu eğitim için alt başlık seçimi zorunlu.", ref: trainingSectionRef });
+        if (!selectedTrainerId) issues.push({ key: "trainer", title: "Eğitmen seçilmedi", detail: "Eğitim Bilgileri bölümünden eğitmen seçin.", ref: trainingSectionRef });
+        if (!trainingLocation) issues.push({ key: "location", title: "Eğitim yeri eksik", detail: "Eğitim yeri zorunlu alandır.", ref: trainingSectionRef });
+        if (!startDate || !endDate || !startTime || !endTime) issues.push({ key: "date", title: "Tarih/Saat eksik", detail: "Başlangıç ve bitiş tarih-saat alanlarını doldurun.", ref: dateSectionRef });
+        if (typedSicilCount === 0) issues.push({ key: "sicil-empty", title: "Katılımcı yok", detail: "En az bir sicil numarası girin.", ref: participantsSectionRef });
+        if (!isSicilListValid || invalidSicils.length > 0) issues.push({ key: "sicil-invalid", title: "Geçersiz sicil var", detail: "Bulunamayan sicilleri düzeltin.", ref: participantsSectionRef });
+        return issues;
+    }, [selectedTrainingId, selectedTraining?.has_topics, selectedTopicId, selectedTrainerId, trainingLocation, startDate, endDate, startTime, endTime, typedSicilCount, isSicilListValid, invalidSicils.length]);
+
+    const primaryBtnClass = "inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-semibold transition-all disabled:opacity-60 disabled:cursor-not-allowed";
+    const primaryActionBtn = `${primaryBtnClass} bg-indigo-600 text-white hover:bg-indigo-700 active:scale-[0.99] shadow-sm`;
+    const successActionBtn = `${primaryBtnClass} bg-emerald-600 text-white hover:bg-emerald-700 active:scale-[0.99] shadow-sm`;
+    const subtleBtnClass = `${primaryBtnClass} bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200`;
+    const dangerBtnClass = `${primaryBtnClass} bg-rose-100 text-rose-700 hover:bg-rose-200 border border-rose-200`;
+    const iconBtnClass = "p-2 rounded-lg transition-colors";
+    const tableHeadCellClass = "px-6 py-3 text-left text-xs font-semibold tracking-wide uppercase text-slate-600";
 
     return (
-        <div className="max-w-7xl mx-auto pb-20 px-4">
+        <div className="max-w-7xl mx-auto pb-24 px-4">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Eğitim Kayıt Girişi</h1>
                     <p className="text-gray-500 mt-1">Önce kayıtları listeye ekleyin, ardından toplu olarak kaydedin.</p>
@@ -595,19 +652,156 @@ export default function ChefDashboard() {
                     <span>Bugün: {new Date().toLocaleDateString('tr-TR')}</span>
                 </div>
             </div>
+            <div className="sticky top-2 z-30 mt-4 mb-6 rounded-2xl border border-slate-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 shadow-sm">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 border-b border-slate-100">
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                        <div className="text-[10px] uppercase tracking-wide text-slate-500">İlerleme</div>
+                        <div className="text-base font-semibold text-slate-900">{completedSteps}/5 adım</div>
+                    </div>
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                        <div className="text-[10px] uppercase tracking-wide text-slate-500">Bekleyen Kayıt</div>
+                        <div className="text-base font-semibold text-slate-900">{pendingRecords.length}</div>
+                    </div>
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                        <div className="text-[10px] uppercase tracking-wide text-slate-500">Toplam Katılımcı</div>
+                        <div className="text-base font-semibold text-slate-900">{totalPendingPersonnel}</div>
+                    </div>
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                        <div className="text-[10px] uppercase tracking-wide text-slate-500">Doğrulama</div>
+                        <div className={`text-sm font-semibold ${unresolvedPendingCount > 0 ? "text-rose-600" : "text-emerald-700"}`}>
+                            {unresolvedPendingCount > 0 ? `${unresolvedPendingCount} sorunlu` : "Temiz"}
+                        </div>
+                    </div>
+                </div>
+                <div className="px-3 py-3">
+                    <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
+                        {[
+                            { label: "Eğitim", done: trainingStepDone },
+                            { label: "Tarih/Saat", done: dateStepDone },
+                            { label: "Katılımcı", done: participantStepDone },
+                            { label: "Liste", done: listStepDone },
+                            { label: "Kaydet", done: finalizeStepDone },
+                        ].map((step, index) => (
+                            <div
+                                key={step.label}
+                                className={`rounded-lg border px-3 py-2 text-sm font-medium ${
+                                    step.done
+                                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                        : "border-slate-200 bg-white text-slate-500"
+                                }`}
+                            >
+                                <span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-white text-xs border border-current/25">
+                                    {index + 1}
+                                </span>
+                                {step.label}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {formIssues.length > 0 && (
+                <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                    <div className="flex items-center justify-between gap-3 mb-3">
+                        <h3 className="font-semibold text-amber-900">Devam etmek için düzeltilecek alanlar</h3>
+                        <span className="text-xs font-semibold text-amber-800 bg-white border border-amber-200 rounded-full px-2 py-1">
+                            {formIssues.length} uyarı
+                        </span>
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                        {formIssues.map((issue) => (
+                            <button
+                                key={issue.key}
+                                type="button"
+                                onClick={() => scrollToSection(issue.ref)}
+                                className="text-left rounded-lg border border-amber-200 bg-white px-3 py-2 hover:bg-amber-100/60 transition-colors"
+                            >
+                                <div className="text-sm font-semibold text-amber-900">{issue.title}</div>
+                                <div className="text-xs text-amber-800">{issue.detail}</div>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            <details className="mb-8 rounded-2xl border border-blue-100 bg-blue-50/60 shadow-sm open:shadow-md">
+                <summary className="cursor-pointer list-none px-5 py-4">
+                    <div className="flex items-center justify-between gap-3">
+                        <div>
+                            <h2 className="text-lg font-bold text-blue-900">Chef Panel Nasıl Kullanılır?</h2>
+                            <p className="text-sm text-blue-800 mt-1">
+                                Bu rehber, paneli ilk kez kullanacak biri için adım adım hazırlanmıştır.
+                            </p>
+                        </div>
+                        <span className="text-xs font-semibold text-blue-700 bg-white border border-blue-200 rounded-full px-3 py-1">
+                            Aç/Kapat
+                        </span>
+                    </div>
+                </summary>
+                <div className="px-5 pb-5">
+                    <div className="rounded-xl border border-blue-200 bg-white p-4 text-sm text-gray-700 space-y-3">
+                        <p className="font-semibold text-gray-900">Hızlı Özet</p>
+                        <p>
+                            Önce eğitim bilgisini doldur, sonra katılımcı sicillerini ekle, kaydı listeye at ve en sonda
+                            tüm kayıtları toplu kaydet.
+                        </p>
+                        <p className="font-semibold text-gray-900">Adım Adım Kullanım</p>
+                        <ol className="list-decimal pl-5 space-y-2">
+                            <li>
+                                <span className="font-medium text-gray-900">Eğitim Bilgileri</span> kartından eğitimi seç.
+                                Eğitmen, tür, eğitim yeri ve belge türü alanlarını doldur.
+                            </li>
+                            <li>
+                                Eğer seçilen eğitimde alt başlık varsa, <span className="font-medium text-gray-900">Alt Başlık</span> alanını
+                                boş bırakma.
+                            </li>
+                            <li>
+                                <span className="font-medium text-gray-900">Tarih ve Saat</span> alanında başlangıç/bitiş tarihini ve saatini
+                                kontrol et. Gerekirse +30dk, +60dk gibi hızlı süre butonlarını kullan.
+                            </li>
+                            <li>
+                                <span className="font-medium text-gray-900">Katılımcı Sicilleri</span> alanında personel ekle:
+                                arama kutusundan tek tek, Excel yükleme ile toplu veya textarea alana yapıştırarak.
+                            </li>
+                            <li>
+                                Sicil doğrulama kutusunu kontrol et. Kırmızı uyarı varsa hatalı veya sistemde bulunmayan sicil vardır.
+                                Bu durumda kayıt ekleme ve kaydetme engellenir.
+                            </li>
+                            <li>
+                                Tüm alanlar hazırsa <span className="font-medium text-gray-900">LİSTEYE EKLE</span> butonuna bas.
+                                Bu işlem kaydı veritabanına yazmaz; sadece bekleyen listeye alır.
+                            </li>
+                            <li>
+                                Aşağıdaki <span className="font-medium text-gray-900">Eklenecek Kayıtlar</span> tablosundan satırları kontrol et.
+                                Gerekirse düzenle/sil işlemleri yap.
+                            </li>
+                            <li>
+                                Son adımda <span className="font-medium text-gray-900">Seçilenleri Kaydet</span> ile kayıtları kalıcı olarak kaydet.
+                            </li>
+                        </ol>
+                        <p className="font-semibold text-gray-900">Önemli Notlar</p>
+                        <ul className="list-disc pl-5 space-y-1">
+                            <li>LİSTEYE EKLE: Taslak oluşturur, veritabanı kaydı yapmaz.</li>
+                            <li>Seçilenleri Kaydet: Veritabanı kaydını gerçekten yapar.</li>
+                            <li>Personel bulunamadı hatası varsa önce sicil numarasını düzelt.</li>
+                            <li>Aynı personeli tekrar eklemek duplicate olarak atlanabilir.</li>
+                        </ul>
+                    </div>
+                </div>
+            </details>
 
             {/* FORM AREA */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                 {/* LEFT COLUMN: Training Info */}
-                <div className="space-y-6">
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <div ref={trainingSectionRef} className="h-full">
+                    <div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden h-full flex flex-col">
                         <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
                             <h2 className="text-lg font-semibold text-white flex items-center">
                                 Eğitim Bilgileri
                             </h2>
                         </div>
 
-                        <div className="p-6 space-y-6">
+                        <div className="p-6 space-y-6 flex-1">
                             <div>
                                 <SearchableSelect
                                     label="Eğitim Seçin"
@@ -711,8 +905,8 @@ export default function ChefDashboard() {
                 </div>
 
                 {/* RIGHT COLUMN */}
-                <div className="space-y-6">
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="space-y-5">
+                    <div ref={dateSectionRef} className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
                         <div className="bg-gray-50 px-6 py-4 border-b border-gray-100 flex justify-between">
                             <h2 className="text-lg font-semibold text-gray-800">Tarih ve Saat</h2>
                             <button onClick={setInitialDateTime} className="text-xs text-blue-600 font-bold hover:underline">Sıfırla</button>
@@ -732,13 +926,13 @@ export default function ChefDashboard() {
                             </div>
                             <div className="mt-4 flex gap-2 overflow-x-auto py-2">
                                 {[30, 45, 60, 90, 120, 480].map(m => (
-                                    <button key={m} onClick={() => handleDurationAdd(m)} className="px-3 py-1 bg-gray-100 hover:bg-blue-100 text-xs rounded-full border border-gray-200">+{m}dk</button>
+                                    <button key={m} onClick={() => handleDurationAdd(m)} className="px-3 py-1 bg-slate-100 hover:bg-indigo-100 text-xs rounded-full border border-slate-200 transition-colors">+{m}dk</button>
                                 ))}
                             </div>
                         </div>
                     </div>
 
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-[360px]">
+                    <div ref={participantsSectionRef} className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden flex flex-col min-h-[360px]">
                         <div className="bg-gray-50 px-6 py-4 border-b border-gray-100 flex justify-between items-center">
                             <h2 className="text-lg font-semibold text-gray-800">Katılımcı Sicilleri</h2>
                         </div>
@@ -787,7 +981,7 @@ export default function ChefDashboard() {
                                 </span>
                                 <button
                                     onClick={() => setSicilNos("")}
-                                    className="text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                                    className={`${dangerBtnClass} text-xs px-3 py-1`}
                                 >
                                     Temizle
                                 </button>
@@ -800,13 +994,17 @@ export default function ChefDashboard() {
                         </div>
                     </div>
 
-                    <button
-                        onClick={handleAddToList}
-                        className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-lg rounded-xl shadow-lg transition-transform active:scale-95"
-                    >
-                        LİSTEYE EKLE ⬇️
-                    </button>
-                </div>
+            </div>
+            </div>
+
+            <div className="sticky bottom-3 z-10 mb-12 mt-5">
+                <button
+                    onClick={handleAddToList}
+                    disabled={!canAddToList}
+                    className={`w-full py-4 text-lg ${primaryActionBtn}`}
+                >
+                    LİSTEYE EKLE
+                </button>
             </div>
 
             {/* ERROR / SUCCESS MESSAGES */}
@@ -823,8 +1021,8 @@ export default function ChefDashboard() {
 
             {/* PENDING LIST TABLE */}
             {pendingRecords.length > 0 && (
-                <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden mb-12 animate-slideUp">
-                    <div className="bg-gray-50 px-6 py-4 border-b border-gray-200 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                <div ref={pendingTableRef} className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden mb-12 animate-slideUp ring-1 ring-black/5">
+                    <div className="bg-slate-50/90 px-6 py-4 border-b border-gray-200 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
                         <div>
                             <h2 className="text-xl font-bold text-gray-800">Eklenecek Kayıtlar</h2>
                             <p className="text-sm text-gray-500">Aşağıdaki tablodan detayları inceleyebilir ve düzenleyebilirsiniz.</p>
@@ -833,7 +1031,7 @@ export default function ChefDashboard() {
                             {/* Export Buttons */}
                             <button
                                 onClick={exportPendingToExcel}
-                                className="bg-green-50 text-green-700 px-3 py-2 rounded-lg text-sm font-medium hover:bg-green-100 transition-colors flex items-center gap-1.5"
+                                className={`${subtleBtnClass} text-sm`}
                                 title="Excel olarak indir"
                             >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -843,7 +1041,7 @@ export default function ChefDashboard() {
                             </button>
                             <button
                                 onClick={exportPendingToPDF}
-                                className="bg-red-50 text-red-700 px-3 py-2 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors flex items-center gap-1.5"
+                                className={`${subtleBtnClass} text-sm`}
                                 title="PDF olarak indir"
                             >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -854,7 +1052,7 @@ export default function ChefDashboard() {
                             {selectedRecordIds.length > 0 && (
                                 <button
                                     onClick={handleBulkDelete}
-                                    className="bg-red-100 text-red-700 px-3 py-2 rounded-lg text-sm font-bold hover:bg-red-200 transition-colors"
+                                    className={`${dangerBtnClass} text-sm`}
                                 >
                                     Sil ({selectedRecordIds.length})
                                 </button>
@@ -863,8 +1061,8 @@ export default function ChefDashboard() {
                     </div>
 
                     <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50/50">
+                        <table className="min-w-full divide-y divide-slate-200">
+                            <thead className="sticky top-0 z-10 bg-slate-100/95 backdrop-blur">
                                 <tr>
                                     <th className="w-10 px-4 py-4">
                                         <input
@@ -875,25 +1073,26 @@ export default function ChefDashboard() {
                                             className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                                         />
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Eğitim Detayları</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sicil No</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ad Soyad</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Grubu</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Eğitmen / Yer</th>
+                                    <th className={tableHeadCellClass}>Eğitim Detayları</th>
+                                    <th className={tableHeadCellClass}>Sicil No</th>
+                                    <th className={tableHeadCellClass}>Ad Soyad</th>
+                                    <th className={tableHeadCellClass}>Grubu</th>
+                                    <th className={tableHeadCellClass}>Eğitmen / Yer</th>
                                     <th className="relative px-6 py-3">
                                         <span className="sr-only">İşlemler</span>
                                     </th>
                                 </tr>
                             </thead>
-                            <tbody className="bg-white divide-y divide-gray-100">
+                            <tbody className="divide-y divide-slate-100">
                                 {pendingRecords.flatMap((record, recordIndex) =>
                                     record.personnel_details.map((person, personIndex) => {
                                         const isFirstOfGroup = personIndex === 0;
                                         const rowSpan = record.personnel_details.length;
                                         const rowKey = `${record.id}-${person.sicil_no}`;
+                                        const striped = (recordIndex + personIndex) % 2 === 0 ? "bg-white" : "bg-slate-50/40";
 
                                         return (
-                                            <tr key={rowKey} className={`hover:bg-blue-50/30 transition-colors ${selectedRecordIds.includes(record.id) ? 'bg-blue-50' : ''} ${!isFirstOfGroup ? 'border-t border-gray-50' : ''}`}>
+                                            <tr key={rowKey} className={`${striped} hover:bg-indigo-50/50 transition-colors ${selectedRecordIds.includes(record.id) ? 'bg-indigo-50' : ''} ${!isFirstOfGroup ? 'border-t border-slate-50' : ''}`}>
                                                 {/* CHECKBOX - only on first row of group */}
                                                 {isFirstOfGroup && (
                                                     <td className="px-4 py-4 whitespace-nowrap" rowSpan={rowSpan}>
@@ -919,7 +1118,7 @@ export default function ChefDashboard() {
                                                             </div>
                                                             <button
                                                                 onClick={() => openEditModal(record, 'TRAINING')}
-                                                                className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-blue-100 text-blue-600 rounded-md transition-all absolute -right-2 top-0"
+                                                                className={`opacity-0 group-hover:opacity-100 ${iconBtnClass} hover:bg-indigo-100 text-indigo-600 absolute -right-2 top-0`}
                                                                 title="Eğitimi Düzenle"
                                                             >
                                                                 <EditIcon className="w-3.5 h-3.5" />
@@ -960,7 +1159,7 @@ export default function ChefDashboard() {
                                                             </div>
                                                             <button
                                                                 onClick={() => openEditModal(record, 'TRAINER')}
-                                                                className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-blue-100 text-blue-600 rounded-md transition-all absolute -right-2 top-0"
+                                                                className={`opacity-0 group-hover:opacity-100 ${iconBtnClass} hover:bg-indigo-100 text-indigo-600 absolute -right-2 top-0`}
                                                                 title="Eğitmen/Yer Düzenle"
                                                             >
                                                                 <EditIcon className="w-3.5 h-3.5" />
@@ -975,14 +1174,14 @@ export default function ChefDashboard() {
                                                         <div className="flex flex-col gap-2 items-end">
                                                             <button
                                                                 onClick={() => openEditModal(record, 'PERSONNEL')}
-                                                                className="text-blue-500 hover:text-blue-700 p-2 hover:bg-blue-50 rounded-lg transition-colors"
+                                                                className={`${iconBtnClass} text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50`}
                                                                 title="Katılımcıları Düzenle"
                                                             >
                                                                 <EditIcon className="w-4 h-4" />
                                                             </button>
                                                             <button
                                                                 onClick={() => handleRemoveFromList(record.id)}
-                                                                className="text-red-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-lg transition-colors"
+                                                                className={`${iconBtnClass} text-rose-400 hover:text-rose-600 hover:bg-rose-50`}
                                                                 title="Listeden Kaldır"
                                                             >
                                                                 <TrashIcon className="w-4 h-4" />
@@ -999,12 +1198,19 @@ export default function ChefDashboard() {
                     </div>
 
                     {/* BULK ACTION BAR */}
-                    <div className="bg-gray-50 px-6 py-6 border-t border-gray-200">
-                        <div className="flex justify-end">
+                    <div className="bg-slate-50 px-6 py-4 border-t border-gray-200 sticky bottom-0">
+                        <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+                            <div className="text-sm text-gray-600">
+                                Hazır personel: <span className="font-semibold text-gray-900">{readyPendingCount}</span>
+                                {unresolvedPendingCount > 0 && (
+                                    <span className="ml-2 text-red-600">| Sorunlu: {unresolvedPendingCount}</span>
+                                )}
+                            </div>
+                            <div className="flex justify-end">
                             <button
                                 onClick={handleBulkSave}
                                 disabled={loading}
-                                className={`px-8 py-4 bg-green-600 hover:bg-green-700 text-white font-bold text-lg rounded-xl shadow-lg flex items-center gap-3 transition-all transform hover:scale-105 ${loading ? 'opacity-70 cursor-wait' : ''}`}
+                                className={`px-8 py-4 text-lg ${successActionBtn} ${loading ? 'cursor-wait' : ''}`}
                             >
                                 {loading ? (
                                     <>
@@ -1018,6 +1224,7 @@ export default function ChefDashboard() {
                                     </>
                                 )}
                             </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1139,13 +1346,13 @@ export default function ChefDashboard() {
                         <div className="bg-gray-50 px-6 py-4 flex justify-end gap-3">
                             <button
                                 onClick={closeEditModal}
-                                className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50"
+                                className={subtleBtnClass}
                             >
                                 İptal
                             </button>
                             <button
                                 onClick={saveEdit}
-                                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700"
+                                className={primaryActionBtn}
                             >
                                 Kaydet
                             </button>
@@ -1156,3 +1363,10 @@ export default function ChefDashboard() {
         </div>
     );
 }
+
+
+
+
+
+
+

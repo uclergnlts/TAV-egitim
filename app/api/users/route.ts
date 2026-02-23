@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
 
         const searchParams = request.nextUrl.searchParams;
         const roleFilter = searchParams.get("role"); // CHEF, ADMIN, or null for all
-        const search = searchParams.get("search") || "";
+        const search = (searchParams.get("search") || "").trim();
 
         let query = db.select({
             id: users.id,
@@ -37,11 +37,18 @@ export async function GET(request: NextRequest) {
         }
 
         if (search) {
+            const isNumericSearch = /^\d+$/.test(search);
             conditions.push(
-                or(
-                    like(users.sicilNo, `%${search}%`),
-                    like(users.fullName, `%${search}%`)
-                )
+                isNumericSearch
+                    ? or(
+                        eq(users.sicilNo, search),
+                        like(users.sicilNo, `${search}%`)
+                    )
+                    : or(
+                        like(users.fullName, `${search}%`),
+                        like(users.fullName, `% ${search}%`),
+                        like(users.sicilNo, `${search}%`)
+                    )
             );
         }
 

@@ -33,9 +33,11 @@ export async function GET(request: NextRequest) {
             });
         }
 
-        const page = parseInt(searchParams.get("page") || "1");
-        const limit = parseInt(searchParams.get("limit") || "50");
-        const query = searchParams.get("query") || "";
+        const rawPage = parseInt(searchParams.get("page") || "1", 10);
+        const rawLimit = parseInt(searchParams.get("limit") || "50", 10);
+        const page = Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1;
+        const limit = Number.isFinite(rawLimit) ? Math.max(1, Math.min(rawLimit, 200)) : 50;
+        const query = (searchParams.get("query") || "").trim();
         const sortBy = searchParams.get("sortBy") || "fullName";
         const sortOrder = searchParams.get("sortOrder") || "asc";
         const advancedFiltersParam = searchParams.get("advancedFilters") || "";
@@ -45,10 +47,26 @@ export async function GET(request: NextRequest) {
         // Build Where Clause
         const filters = [];
         if (query) {
-            filters.push(or(
-                like(personnel.sicilNo, `%${query}%`),
-                like(personnel.fullName, `%${query}%`)
-            ));
+            const isNumeric = /^\d+$/.test(query);
+
+            if (isNumeric) {
+                filters.push(
+                    or(
+                        eq(personnel.sicilNo, query),
+                        eq(personnel.tcKimlikNo, query),
+                        like(personnel.sicilNo, `${query}%`),
+                        like(personnel.tcKimlikNo, `${query}%`)
+                    )
+                );
+            } else {
+                filters.push(
+                    or(
+                        like(personnel.fullName, `${query}%`),
+                        like(personnel.fullName, `% ${query}%`),
+                        like(personnel.sicilNo, `${query}%`)
+                    )
+                );
+            }
         }
 
         // Parse and apply advanced filters (whitelist approach)
@@ -113,12 +131,15 @@ export async function GET(request: NextRequest) {
         const whereClause = filters.length > 0 ? and(...filters) : undefined;
 
         // Determine Sort Field
-        let sortField = personnel.fullName; // Default
-        if (sortBy === "sicilNo") sortField = personnel.sicilNo as any;
-        else if (sortBy === "gorevi") sortField = personnel.gorevi as any;
-        else if (sortBy === "grup") sortField = personnel.grup as any;
-        else if (sortBy === "personelDurumu") sortField = personnel.personelDurumu as any;
-        else if (sortBy === "createdAt") sortField = personnel.createdAt as any;
+        const sortFieldMap = {
+            fullName: personnel.fullName,
+            sicilNo: personnel.sicilNo,
+            gorevi: personnel.gorevi,
+            grup: personnel.grup,
+            personelDurumu: personnel.personelDurumu,
+            createdAt: personnel.createdAt,
+        } as const;
+        const sortField = sortFieldMap[sortBy as keyof typeof sortFieldMap] ?? personnel.fullName;
 
         const orderByClause = sortOrder === "desc" ? desc(sortField) : asc(sortField);
 
@@ -126,7 +147,7 @@ export async function GET(request: NextRequest) {
         const totalResult = await db.select({ count: sql<number>`count(*)` })
             .from(personnel)
             .where(whereClause);
-        const total = totalResult[0].count;
+        const total = Number(totalResult[0]?.count ?? 0);
         const totalPages = Math.ceil(total / limit);
 
         // Fetch data

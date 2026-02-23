@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { db, personnel } from "@/lib/db";
-import { or, like } from "drizzle-orm";
+import { or, like, eq } from "drizzle-orm";
 import { getSession } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
 
         // Query parametresi al
         const searchParams = request.nextUrl.searchParams;
-        const query = searchParams.get("query") || "";
+        const query = (searchParams.get("query") || "").trim();
 
         if (query.length < 2) {
             return NextResponse.json({
@@ -33,6 +33,8 @@ export async function GET(request: NextRequest) {
 
         // Personel ara (sicil_no veya ad_soyad ile)
         // SQLite like is case-insensitive for ASCII by default
+        const isNumeric = /^\d+$/.test(query);
+
         const results = await db
             .select({
                 id: personnel.id,
@@ -46,10 +48,18 @@ export async function GET(request: NextRequest) {
             })
             .from(personnel)
             .where(
-                or(
-                    like(personnel.sicilNo, `%${query}%`),
-                    like(personnel.fullName, `%${query}%`)
-                )
+                isNumeric
+                    ? or(
+                        eq(personnel.sicilNo, query),
+                        eq(personnel.tcKimlikNo, query),
+                        like(personnel.sicilNo, `${query}%`),
+                        like(personnel.tcKimlikNo, `${query}%`)
+                    )
+                    : or(
+                        like(personnel.fullName, `${query}%`),
+                        like(personnel.fullName, `% ${query}%`),
+                        like(personnel.sicilNo, `${query}%`)
+                    )
             )
             .limit(20);
 

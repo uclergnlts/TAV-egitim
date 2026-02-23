@@ -40,18 +40,45 @@ export async function GET(request: NextRequest) {
         const endDate = searchParams.get("endDate") || "";
         const grup = searchParams.get("grup") || "";
         const personelDurumu = searchParams.get("personelDurumu") || "";
+        const withTotal = searchParams.get("withTotal") === "1";
+        const pageParam = parseInt(searchParams.get("page") || "1", 10);
+        const limitParam = parseInt(searchParams.get("limit") || "2000", 10);
+        const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
+        const limit = Number.isFinite(limitParam) ? Math.max(1, Math.min(limitParam, 2000)) : 2000;
+        const offset = (page - 1) * limit;
 
         const filters = [];
 
         if (search) {
-            filters.push(or(
-                like(attendances.adSoyad, `%${search}%`),
-                like(attendances.sicilNo, `%${search}%`)
-            ));
+            const normalizedSearch = search.trim();
+            const isNumericSearch = /^\d+$/.test(normalizedSearch);
+
+            filters.push(
+                isNumericSearch
+                    ? or(
+                        eq(attendances.sicilNo, normalizedSearch),
+                        eq(attendances.tcKimlikNo, normalizedSearch),
+                        like(attendances.sicilNo, `${normalizedSearch}%`),
+                        like(attendances.tcKimlikNo, `${normalizedSearch}%`)
+                    )
+                    : or(
+                        like(attendances.adSoyad, `${normalizedSearch}%`),
+                        like(attendances.adSoyad, `% ${normalizedSearch}%`),
+                        like(attendances.sicilNo, `${normalizedSearch}%`)
+                    )
+            );
         }
 
         if (trainingCode) {
-            filters.push(like(attendances.egitimKodu, `%${trainingCode}%`));
+            const normalizedCode = trainingCode.trim();
+            filters.push(
+                or(
+                    eq(attendances.egitimKoduYeni, normalizedCode),
+                    eq(attendances.egitimKodu, normalizedCode),
+                    like(attendances.egitimKoduYeni, `${normalizedCode}%`),
+                    like(attendances.egitimKodu, `${normalizedCode}%`)
+                )
+            );
         }
 
         if (startDate) {
@@ -125,11 +152,27 @@ export async function GET(request: NextRequest) {
                 desc(attendances.baslamaTarihi),
                 attendances.adSoyad
             )
-            .limit(2000);
+            .limit(limit)
+            .offset(offset);
+
+        let total: number | null = null;
+        if (withTotal) {
+            const totalCountRows = await db
+                .select({ count: sql<number>`count(*)` })
+                .from(attendances)
+                .where(filters.length > 0 ? and(...filters) : undefined);
+            total = Number(totalCountRows[0]?.count ?? 0);
+        }
 
         return NextResponse.json({
             success: true,
-            data: result
+            data: result,
+            pagination: {
+                total,
+                page,
+                limit,
+                totalPages: total === null ? null : Math.ceil(total / limit),
+            },
         });
 
     } catch (error) {

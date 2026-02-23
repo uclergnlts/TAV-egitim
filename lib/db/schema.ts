@@ -63,6 +63,9 @@ export const personnel = sqliteTable(
     (table) => ({
         sicilNoIdx: uniqueIndex("personnel_sicil_no_idx").on(table.sicilNo),
         fullNameIdx: index("idx_personnel_full_name").on(table.fullName),
+        tcKimlikNoIdx: index("idx_personnel_tc_kimlik_no").on(table.tcKimlikNo),
+        goreviIdx: index("idx_personnel_gorevi").on(table.gorevi),
+        projeAdiIdx: index("idx_personnel_proje_adi").on(table.projeAdi),
         grupIdx: index("idx_personnel_grup").on(table.grup),
         durumuIdx: index("idx_personnel_durumu").on(table.personelDurumu),
     })
@@ -215,6 +218,18 @@ export const attendances = sqliteTable(
         trainingYearIdx: index("idx_att_training_year").on(table.trainingId, table.year),
         personelYearIdx: index("idx_att_personel_year").on(table.personelId, table.year),
         sicilIdx: index("idx_att_sicil").on(table.sicilNo),
+        tcKimlikIdx: index("idx_att_tc_kimlik").on(table.tcKimlikNo),
+        baslamaTarihiIdx: index("idx_att_baslama_tarihi").on(table.baslamaTarihi),
+        trainerIdx: index("idx_att_trainer_id").on(table.trainerId),
+        grupDurumTarihIdx: index("idx_att_grup_durum_tarih").on(
+            table.grup,
+            table.personelDurumu,
+            table.baslamaTarihi
+        ),
+        egitimKodlariIdx: index("idx_att_egitim_kodlari").on(
+            table.egitimKoduYeni,
+            table.egitimKodu
+        ),
     })
 );
 

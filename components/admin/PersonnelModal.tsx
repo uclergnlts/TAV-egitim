@@ -18,6 +18,21 @@ interface PersonnelModalProps {
     groupDefs: GroupDef[];
 }
 
+const INITIAL_FORM = {
+    sicilNo: "",
+    fullName: "",
+    tcKimlikNo: "",
+    gorevi: "X-Ray Operatörü",
+    projeAdi: "TAV ESB",
+    grup: "",
+    personelDurumu: "CALISAN",
+    cinsiyet: "",
+    telefon: "",
+    dogumTarihi: "",
+    adres: "",
+    email: ""
+};
+
 export default function PersonnelModal({
     isOpen,
     onClose,
@@ -28,22 +43,7 @@ export default function PersonnelModal({
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const initialForm = {
-        sicilNo: "",
-        fullName: "",
-        tcKimlikNo: "",
-        gorevi: "X-Ray Operatörü", // Default value
-        projeAdi: "TAV ESB", // Default value
-        grup: "",
-        personelDurumu: "CALISAN",
-        cinsiyet: "",
-        telefon: "",
-        dogumTarihi: "",
-        adres: "",
-        email: ""
-    };
-
-    const [formData, setFormData] = useState(initialForm);
+    const [formData, setFormData] = useState(INITIAL_FORM);
 
     useEffect(() => {
         if (editData) {
@@ -67,7 +67,7 @@ export default function PersonnelModal({
             // New record - reset to initial
             // If groups are loaded and we have no group selected, select first one
             const defaultGroup = groupDefs.length > 0 ? groupDefs[0].name : "";
-            setFormData({ ...initialForm, grup: defaultGroup });
+            setFormData({ ...INITIAL_FORM, grup: defaultGroup });
         }
         setError(null);
     }, [editData, isOpen, groupDefs]);

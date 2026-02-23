@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useCallback } from "react";
 import { Edit, Trash2 } from "lucide-react";
 import { LazyPersonnelModal, LazyFilterPanel } from "@/components/LazyComponents";
 import { type FilterValue, type FilterField } from "@/components/FilterPanel";
@@ -59,16 +59,7 @@ export default function PersonnelPage() {
     const [showModal, setShowModal] = useState(false);
     const [selectedPersonnel, setSelectedPersonnel] = useState<Personnel | null>(null);
 
-    // Grupları yükle
-    useEffect(() => {
-        loadGroups();
-    }, []);
-
-    useEffect(() => {
-        loadPersonnel();
-    }, [page, sortConfig, filters]); // Reload when page, sort or filter changes
-
-    const loadGroups = async () => {
+    const loadGroups = useCallback(async () => {
         try {
             const res = await fetch("/api/definitions/groups");
             const data = await res.json();
@@ -78,9 +69,9 @@ export default function PersonnelPage() {
         } catch (err) {
             console.error("Gruplar yüklenemedi", err);
         }
-    };
+    }, []);
 
-    const loadPersonnel = async (query = "") => {
+    const loadPersonnel = useCallback(async (query = "") => {
         setLoading(true);
         try {
             // Build URL with params
@@ -109,7 +100,17 @@ export default function PersonnelPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [page, sortConfig, filters]);
+
+    // Grupları yükle
+    useEffect(() => {
+        loadGroups();
+    }, [loadGroups]);
+
+    useEffect(() => {
+        loadPersonnel();
+    }, [loadPersonnel]); // Reload when page, sort or filter changes
+
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();

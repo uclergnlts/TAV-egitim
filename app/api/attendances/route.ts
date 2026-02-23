@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { db, attendances, personnel, trainings, trainingTopics, trainers } from "@/lib/db";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, ne } from "drizzle-orm";
 import { getSession } from "@/lib/auth";
 import { getYear, getMonth } from "@/lib/utils";
 import { logAction } from "@/lib/audit";
@@ -257,7 +257,6 @@ export async function PUT(request: NextRequest) {
             );
         }
 
-        // ADMIN veya kendi girdikleri kayıtları düzenleyebilir
         const body = await request.json();
         const { id } = body;
 
@@ -268,7 +267,6 @@ export async function PUT(request: NextRequest) {
             );
         }
 
-        // Mevcut kaydı bul
         const existingRecord = await db.query.attendances.findFirst({
             where: eq(attendances.id, id),
         });
@@ -280,7 +278,6 @@ export async function PUT(request: NextRequest) {
             );
         }
 
-        // Yetki kontrolü: ADMIN veya kaydı giren şef düzenleyebilir
         if (session.role !== "ADMIN" && existingRecord.veriGirenSicil !== session.sicilNo) {
             return NextResponse.json(
                 { success: false, message: "Bu kaydı düzenleme yetkiniz yok" },
@@ -289,6 +286,7 @@ export async function PUT(request: NextRequest) {
         }
 
         const { field, value } = body;
+        const valueStr = typeof value === "string" ? value.trim() : String(value ?? "").trim();
 
         if (!field) {
             return NextResponse.json(
@@ -297,148 +295,208 @@ export async function PUT(request: NextRequest) {
             );
         }
 
-        // Güncellenecek alanları map et
         const updateData: Record<string, string | number | null> = {};
         let needsYearMonthUpdate = false;
 
         switch (field) {
-            case 'baslama_tarihi':
-                updateData.baslamaTarihi = value;
+            case "sicil_no": {
+                if (!valueStr) {
+                    return NextResponse.json({ success: false, message: "Sicil No boş bırakılamaz" }, { status: 400 });
+                }
+                const personelBySicil = await db.query.personnel.findFirst({ where: eq(personnel.sicilNo, valueStr) });
+                if (!personelBySicil) {
+                    return NextResponse.json({ success: false, message: "Sicil No bulunamadı: " + valueStr }, { status: 400 });
+                }
+                updateData.personelId = personelBySicil.id;
+                updateData.sicilNo = personelBySicil.sicilNo;
+                updateData.adSoyad = personelBySicil.fullName;
+                updateData.tcKimlikNo = personelBySicil.tcKimlikNo;
+                updateData.gorevi = personelBySicil.gorevi;
+                updateData.projeAdi = personelBySicil.projeAdi;
+                updateData.grup = personelBySicil.grup;
+                updateData.personelDurumu = personelBySicil.personelDurumu;
+                break;
+            }
+            case "baslama_tarihi":
+                if (!/^\d{4}-\d{2}-\d{2}$/.test(valueStr)) {
+                    return NextResponse.json({ success: false, message: "Başlama tarihi formatı geçersiz (YYYY-MM-DD)" }, { status: 400 });
+                }
+                updateData.baslamaTarihi = valueStr;
                 needsYearMonthUpdate = true;
                 break;
-            case 'bitis_tarihi':
-                updateData.bitisTarihi = value;
+            case "bitis_tarihi":
+                if (!/^\d{4}-\d{2}-\d{2}$/.test(valueStr)) {
+                    return NextResponse.json({ success: false, message: "Bitiş tarihi formatı geçersiz (YYYY-MM-DD)" }, { status: 400 });
+                }
+                updateData.bitisTarihi = valueStr;
                 break;
-            case 'baslama_saati':
-                updateData.baslamaSaati = value;
+            case "baslama_saati":
+                if (!/^\d{2}:\d{2}$/.test(valueStr)) {
+                    return NextResponse.json({ success: false, message: "Başlama saati formatı geçersiz (HH:mm)" }, { status: 400 });
+                }
+                updateData.baslamaSaati = valueStr;
                 break;
-            case 'bitis_saati':
-                updateData.bitisSaati = value;
+            case "bitis_saati":
+                if (!/^\d{2}:\d{2}$/.test(valueStr)) {
+                    return NextResponse.json({ success: false, message: "Bitiş saati formatı geçersiz (HH:mm)" }, { status: 400 });
+                }
+                updateData.bitisSaati = valueStr;
                 break;
-            case 'egitim_yeri':
-                updateData.egitimYeri = value;
+            case "egitim_yeri":
+                if (!valueStr) {
+                    return NextResponse.json({ success: false, message: "Eğitim yeri boş bırakılamaz" }, { status: 400 });
+                }
+                updateData.egitimYeri = valueStr;
                 break;
-            case 'egitim_detayli_aciklama':
-                updateData.egitimDetayliAciklama = value || null;
+            case "egitim_detayli_aciklama":
+                updateData.egitimDetayliAciklama = valueStr || null;
                 break;
-            case 'egitim_kodu':
-                updateData.egitimKodu = value;
+            case "egitim_kodu": {
+                if (!valueStr) {
+                    return NextResponse.json({ success: false, message: "Eğitim kodu boş bırakılamaz" }, { status: 400 });
+                }
+                const trainingByCode = await db.query.trainings.findFirst({ where: eq(trainings.code, valueStr) });
+                if (!trainingByCode) {
+                    return NextResponse.json({ success: false, message: "Eğitim kodu bulunamadı: " + valueStr }, { status: 400 });
+                }
+                updateData.trainingId = trainingByCode.id;
+                updateData.egitimKodu = trainingByCode.code;
+                updateData.egitimKoduYeni = trainingByCode.code;
+                updateData.egitimSuresiDk = trainingByCode.durationMin;
+                updateData.egitimAltBasligi = null;
                 break;
-            case 'egitim_alt_basligi':
-                updateData.egitimAltBasligi = value || null;
+            }
+            case "egitim_alt_basligi": {
+                if (!valueStr) {
+                    updateData.egitimAltBasligi = null;
+                    break;
+                }
+
+                const targetTrainingId = existingRecord.trainingId;
+                const topic = await db.query.trainingTopics.findFirst({
+                    where: and(
+                        eq(trainingTopics.trainingId, targetTrainingId),
+                        eq(trainingTopics.title, valueStr)
+                    ),
+                });
+
+                if (!topic) {
+                    return NextResponse.json(
+                        { success: false, message: "Seçilen alt eğitim, seçili eğitim koduna bağlı değil" },
+                        { status: 400 }
+                    );
+                }
+
+                updateData.egitimAltBasligi = valueStr;
                 break;
-            case 'egitmen_adi':
-                if (!value) {
+            }
+            case "egitmen_adi": {
+                if (!valueStr) {
                     updateData.trainerId = null;
                     break;
                 }
-                const trainerByName = await db.query.trainers.findFirst({
-                    where: eq(trainers.fullName, String(value)),
-                });
+                const trainerByName = await db.query.trainers.findFirst({ where: eq(trainers.fullName, valueStr) });
                 if (!trainerByName) {
-                    return NextResponse.json(
-                        { success: false, message: "Eğitmen bulunamadı" },
-                        { status: 400 }
-                    );
+                    return NextResponse.json({ success: false, message: "Eğitmen bulunamadı" }, { status: 400 });
                 }
                 updateData.trainerId = trainerByName.id;
                 break;
-            case 'trainer_id':
-                if (!value) {
+            }
+            case "trainer_id": {
+                if (!valueStr) {
                     updateData.trainerId = null;
                     break;
                 }
-                const trainerById = await db.query.trainers.findFirst({
-                    where: eq(trainers.id, String(value)),
-                });
+                const trainerById = await db.query.trainers.findFirst({ where: eq(trainers.id, valueStr) });
                 if (!trainerById) {
-                    return NextResponse.json(
-                        { success: false, message: "Eğitmen bulunamadı" },
-                        { status: 400 }
-                    );
+                    return NextResponse.json({ success: false, message: "Eğitmen bulunamadı" }, { status: 400 });
                 }
                 updateData.trainerId = trainerById.id;
                 break;
-            case 'sonuc_belgesi_turu':
-                if (value === 'EGITIM_KATILIM_CIZELGESI' || value === 'SERTIFIKA') {
-                    updateData.sonucBelgesiTuru = value;
+            }
+            case "sonuc_belgesi_turu":
+                if (valueStr !== "EGITIM_KATILIM_CIZELGESI" && valueStr !== "SERTIFIKA") {
+                    return NextResponse.json({ success: false, message: "Geçersiz sonuç belgesi türü" }, { status: 400 });
                 }
+                updateData.sonucBelgesiTuru = valueStr;
                 break;
-            case 'ic_dis_egitim':
-                if (value === 'IC' || value === 'DIS') {
-                    updateData.icDisEgitim = value;
+            case "ic_dis_egitim":
+                if (valueStr !== "IC" && valueStr !== "DIS") {
+                    return NextResponse.json({ success: false, message: "Geçersiz iç/dış eğitim değeri" }, { status: 400 });
                 }
+                updateData.icDisEgitim = valueStr;
                 break;
-            case 'egitim_suresi_dk':
-                const duration = parseInt(value);
-                if (!isNaN(duration) && duration > 0) {
-                    updateData.egitimSuresiDk = duration;
+            case "egitim_suresi_dk": {
+                const duration = parseInt(valueStr, 10);
+                if (!Number.isFinite(duration) || duration <= 0) {
+                    return NextResponse.json({ success: false, message: "Eğitim süresi geçersiz" }, { status: 400 });
                 }
+                updateData.egitimSuresiDk = duration;
                 break;
-            case 'personel_durumu':
-                if (['CALISAN', 'AYRILDI', 'IZINLI', 'PASIF'].includes(value)) {
-                    updateData.personelDurumu = value;
+            }
+            case "personel_durumu":
+                if (!["CALISAN", "AYRILDI", "IZINLI", "PASIF"].includes(valueStr)) {
+                    return NextResponse.json({ success: false, message: "Geçersiz personel durumu" }, { status: 400 });
                 }
+                updateData.personelDurumu = valueStr;
                 break;
-            case 'ad_soyad':
-                updateData.adSoyad = value;
+            case "ad_soyad":
+                if (!valueStr) return NextResponse.json({ success: false, message: "Ad Soyad boş bırakılamaz" }, { status: 400 });
+                updateData.adSoyad = valueStr;
                 break;
-            case 'gorevi':
-                updateData.gorevi = value;
+            case "gorevi":
+                if (!valueStr) return NextResponse.json({ success: false, message: "Görev boş bırakılamaz" }, { status: 400 });
+                updateData.gorevi = valueStr;
                 break;
-            case 'tc_kimlik_no':
-                if (!String(value ?? "").trim()) {
-                    return NextResponse.json(
-                        { success: false, message: "TC Kimlik No boş bırakılamaz" },
-                        { status: 400 }
-                    );
+            case "tc_kimlik_no":
+                if (!valueStr) return NextResponse.json({ success: false, message: "TC Kimlik No boş bırakılamaz" }, { status: 400 });
+                updateData.tcKimlikNo = valueStr;
+                break;
+            case "proje_adi":
+                if (!valueStr) return NextResponse.json({ success: false, message: "Proje adı boş bırakılamaz" }, { status: 400 });
+                updateData.projeAdi = valueStr;
+                break;
+            case "grup":
+                if (!valueStr) return NextResponse.json({ success: false, message: "Çalışma Grubu boş bırakılamaz" }, { status: 400 });
+                updateData.grup = valueStr;
+                break;
+            case "yerlesim":
+                updateData.yerlesim = valueStr || null;
+                break;
+            case "organizasyon":
+                updateData.organizasyon = valueStr || null;
+                break;
+            case "sirket_adi":
+                updateData.sirketAdi = valueStr || null;
+                break;
+            case "vardiya_tipi":
+                updateData.vardiyaTipi = valueStr || null;
+                break;
+            case "terminal":
+                updateData.terminal = valueStr || null;
+                break;
+            case "bolge_kodu":
+                updateData.bolgeKodu = valueStr || null;
+                break;
+            case "egitim_kodu_yeni":
+                updateData.egitimKoduYeni = valueStr || null;
+                break;
+            case "egitim_test_sonucu":
+                updateData.egitimTestSonucu = valueStr || null;
+                break;
+            case "tazeleme_planlama_tarihi":
+                if (valueStr && !/^\d{4}-\d{2}-\d{2}$/.test(valueStr)) {
+                    return NextResponse.json({ success: false, message: "Tazeleme planlama tarihi formatı geçersiz (YYYY-MM-DD)" }, { status: 400 });
                 }
-                updateData.tcKimlikNo = value;
+                updateData.tazelemePlanlamaTarihi = valueStr || null;
                 break;
-            case 'proje_adi':
-                updateData.projeAdi = value;
+            case "veri_giren_sicil":
+                if (!valueStr) return NextResponse.json({ success: false, message: "Veri giren sicil boş bırakılamaz" }, { status: 400 });
+                updateData.veriGirenSicil = valueStr;
                 break;
-            case 'grup':
-                if (!String(value ?? "").trim()) {
-                    return NextResponse.json(
-                        { success: false, message: "Çalışma Grubu boş bırakılamaz" },
-                        { status: 400 }
-                    );
-                }
-                updateData.grup = value;
-                break;
-            case 'yerlesim':
-                updateData.yerlesim = value || null;
-                break;
-            case 'organizasyon':
-                updateData.organizasyon = value || null;
-                break;
-            case 'sirket_adi':
-                updateData.sirketAdi = value || null;
-                break;
-            case 'vardiya_tipi':
-                updateData.vardiyaTipi = value || null;
-                break;
-            case 'terminal':
-                updateData.terminal = value || null;
-                break;
-            case 'bolge_kodu':
-                updateData.bolgeKodu = value || null;
-                break;
-            case 'egitim_kodu_yeni':
-                updateData.egitimKoduYeni = value || null;
-                break;
-            case 'egitim_test_sonucu':
-                updateData.egitimTestSonucu = value || null;
-                break;
-            case 'tazeleme_planlama_tarihi':
-                updateData.tazelemePlanlamaTarihi = value || null;
-                break;
-            case 'veri_giren_sicil':
-                updateData.veriGirenSicil = value;
-                break;
-            case 'veri_giris_tarihi':
-                updateData.veriGirisTarihi = value;
+            case "veri_giris_tarihi":
+                if (!valueStr) return NextResponse.json({ success: false, message: "Veri giriş tarihi boş bırakılamaz" }, { status: 400 });
+                updateData.veriGirisTarihi = valueStr;
                 break;
             default:
                 return NextResponse.json(
@@ -447,22 +505,45 @@ export async function PUT(request: NextRequest) {
                 );
         }
 
-        // Year ve month'u başlangıç tarihinden hesapla (eğer başlama tarihi güncelleniyorsa)
-        // YYYY-MM-DD formatından direkt parse et (timezone sorunlarını önler)
         if (needsYearMonthUpdate && updateData.baslamaTarihi) {
             const dateStr = String(updateData.baslamaTarihi);
             const [yearStr, monthStr] = dateStr.split("-");
             updateData.year = parseInt(yearStr, 10);
             updateData.month = parseInt(monthStr, 10);
+            if (!Number.isFinite(updateData.year) || !Number.isFinite(updateData.month)) {
+                return NextResponse.json({ success: false, message: "Başlama tarihi geçersiz" }, { status: 400 });
+            }
         }
 
-        // Güncelle
+        if (Object.keys(updateData).length === 0) {
+            return NextResponse.json({ success: false, message: "Güncellenecek geçerli alan bulunamadı" }, { status: 400 });
+        }
+
+        const targetPersonelId = String(updateData.personelId ?? existingRecord.personelId);
+        const targetTrainingId = String(updateData.trainingId ?? existingRecord.trainingId);
+        const targetYear = Number(updateData.year ?? existingRecord.year);
+
+        const conflictRecord = await db.query.attendances.findFirst({
+            where: and(
+                eq(attendances.personelId, targetPersonelId),
+                eq(attendances.trainingId, targetTrainingId),
+                eq(attendances.year, targetYear),
+                ne(attendances.id, id)
+            ),
+        });
+
+        if (conflictRecord) {
+            return NextResponse.json(
+                { success: false, message: "Aynı personel/eğitim/yıl için zaten bir kayıt var" },
+                { status: 409 }
+            );
+        }
+
         const [updated] = await db.update(attendances)
             .set(updateData)
             .where(eq(attendances.id, id))
             .returning();
 
-        // Audit Log
         await logAction({
             userId: session.userId,
             userRole: session.role as "ADMIN" | "CHEF",
@@ -479,7 +560,20 @@ export async function PUT(request: NextRequest) {
             data: updated,
         });
 
-    } catch {
+    } catch (error: unknown) {
+        const err = error as { message?: string };
+        if (err.message?.includes("UNIQUE")) {
+            return NextResponse.json(
+                { success: false, message: "Bu güncelleme benzersiz kayıt kuralını ihlal ediyor" },
+                { status: 409 }
+            );
+        }
+        if (err.message?.includes("NOT NULL")) {
+            return NextResponse.json(
+                { success: false, message: "Zorunlu bir alan boş bırakıldı" },
+                { status: 400 }
+            );
+        }
         return NextResponse.json(
             { success: false, message: "Güncelleme işlemi başarısız" },
             { status: 500 }
@@ -620,6 +714,3 @@ export async function DELETE(request: NextRequest) {
         );
     }
 }
-
-
-

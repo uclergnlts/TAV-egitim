@@ -107,6 +107,13 @@ if errorlevel 1 (
     exit /b 1
 )
 echo      Standalone uygulama kopyalandi.
+
+:: server.js icindeki hardcoded path'leri temizle (UNC path uyumlulugu)
+echo      server.js icindeki lokal yollar temizleniyor...
+if exist "dist\app\server.js" (
+    "%~dp0..\node_modules\.bin\node" -e "const fs=require('fs');let s=fs.readFileSync('dist/app/server.js','utf8');s=s.replace(/\"outputFileTracingRoot\":\"[^\"]*\"/,'\"outputFileTracingRoot\":\"\"');s=s.replace(/\"root\":\"[^\"]*\"/g,(m,o)=>s.indexOf('turbopack',o-50)>o-50?'\"root\":\"\"':m);fs.writeFileSync('dist/app/server.js',s);" 2>nul
+    if not errorlevel 1 echo      Hardcoded path'ler temizlendi.
+)
 echo.
 
 :: Static dosyalari kopyala (Next.js standalone dokumantasyonu geregi)
@@ -148,11 +155,13 @@ echo APP_ENV=production
 echo      .env dosyasi olusturuldu.
 echo.
 
-:: start.bat ve update.bat kopyala
-echo start.bat ve update.bat kopyalaniyor...
+:: start.bat, kapat.bat ve update.bat kopyala
+echo start.bat, kapat.bat ve update.bat kopyalaniyor...
 copy /y "%~dp0start.bat" "dist\start.bat" >nul
+copy /y "%~dp0kapat.bat" "dist\kapat.bat" >nul 2>&1
 copy /y "%~dp0update.bat" "dist\update.bat" >nul 2>&1
 echo      start.bat kopyalandi.
+echo      kapat.bat kopyalandi.
 echo      update.bat kopyalandi.
 echo.
 

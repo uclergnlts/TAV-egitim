@@ -8,6 +8,7 @@ import { NextResponse } from "next/server";
 import { db, attendances } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import { z } from "zod";
+import type { InferInsertModel } from "drizzle-orm";
 
 // Tekil kayıt şeması (Validation için)
 const attendanceItemSchema = z.object({
@@ -87,8 +88,7 @@ export async function POST(req: Request) {
         });
         const trainerMap = new Map(trainerList.map(t => [t.id, t]));
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const insertValues: any[] = [];
+        const insertValues: InferInsertModel<typeof attendances>[] = [];
         const errors: string[] = [];
 
         // Kayıtları hazırla
@@ -167,7 +167,9 @@ export async function POST(req: Request) {
                 // Detaylar
                 egitimYeri: record.egitim_yeri,
                 icDisEgitim: record.ic_dis_egitim,
-                sonucBelgesiTuru: record.sonuc_belgesi_turu || "EGITIM_KATILIM_CIZELGESI", // Varsayılan
+                sonucBelgesiTuru:
+                    (record.sonuc_belgesi_turu as InferInsertModel<typeof attendances>["sonucBelgesiTuru"]) ||
+                    "EGITIM_KATILIM_CIZELGESI",
                 egitimDetayliAciklama: record.egitim_detayli_aciklama,
                 egitimTestSonucu: null,
                 tazelemePlanlamaTarihi: null,

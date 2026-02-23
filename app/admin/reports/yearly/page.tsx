@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { MONTHS_TR } from "@/lib/utils";
 import * as XLSX from "xlsx";
 
@@ -29,11 +29,7 @@ export default function YearlyPivotPage() {
     const [data, setData] = useState<PivotData | null>(null);
     const [loading, setLoading] = useState(false);
 
-    useEffect(() => {
-        loadData();
-    }, [year]);
-
-    const loadData = async () => {
+    const loadData = useCallback(async () => {
         setLoading(true);
         try {
             const res = await fetch(`/api/reports/yearly-pivot?year=${year}`);
@@ -46,7 +42,11 @@ export default function YearlyPivotPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [year]);
+
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
 
     const exportToExcel = () => {
         if (!data?.rows.length) return;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useCallback } from "react";
 import { MONTHS_TR } from "@/lib/utils";
 import dynamic from "next/dynamic";
 
@@ -61,11 +61,7 @@ export default function StatisticsPage() {
     const [data, setData] = useState<StatisticsData | null>(null);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        loadData();
-    }, [year]);
-
-    const loadData = async () => {
+    const loadData = useCallback(async () => {
         setLoading(true);
         try {
             const res = await fetch(`/api/reports/statistics?year=${year}`);
@@ -78,7 +74,11 @@ export default function StatisticsPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [year]);
+
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
 
     const years = Array.from({ length: 10 }, (_, i) => currentYear - 5 + i);
 

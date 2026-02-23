@@ -344,24 +344,7 @@ export default function MonthlyReportPage() {
     
     const toast = useToast();
 
-    // İlk yüklemede veri çek
-    useEffect(() => {
-        loadData();
-    }, []);
-
-    // Ay değiştiğinde yeniden yükle (sadece month modunda)
-    useEffect(() => {
-        if (dateMode === 'month') {
-            loadData();
-        }
-    }, [year, month]);
-
-    // Arama veya sıralama değiştiğinde sayfayı sıfırla
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [searchTerm, sortConfig]);
-
-    const loadData = async () => {
+    const loadData = useCallback(async () => {
         setLoading(true);
         try {
             let url = '/api/reports/monthly';
@@ -382,7 +365,19 @@ export default function MonthlyReportPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [dateMode, startDate, endDate, year, month]);
+
+    // İlk yüklemede ve ay değiştiğinde veri çek (sadece month modunda)
+    useEffect(() => {
+        if (dateMode === 'month') {
+            loadData();
+        }
+    }, [dateMode, year, month, loadData]);
+
+    // Arama veya sıralama değiştiğinde sayfayı sıfırla
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, sortConfig]);
 
     const handleSearchRange = () => {
         if (!startDate || !endDate) {

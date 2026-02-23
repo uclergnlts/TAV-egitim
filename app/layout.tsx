@@ -4,6 +4,7 @@ import "./globals.css";
 import { ToastProvider } from "@/components/ToastProvider";
 import { QueryClientProvider } from "@/components/QueryClientProvider";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { Heartbeat } from "@/components/Heartbeat";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -23,6 +24,7 @@ export default function RootLayout({
                 <ErrorBoundary>
                     <QueryClientProvider>
                         <ToastProvider>
+                            <Heartbeat />
                             {children}
                         </ToastProvider>
                     </QueryClientProvider>

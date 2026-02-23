@@ -52,6 +52,13 @@ interface ImportError {
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^\d{2}:\d{2}$/;
 
+function normalizeTrainingCode(code: string | undefined): string {
+    return String(code ?? "")
+        .trim()
+        .toUpperCase()
+        .replace(/\s+/g, "");
+}
+
 export function normalizeDate(value: string | undefined): string {
     if (!value) return "";
     const s = String(value).trim();
@@ -168,13 +175,25 @@ export async function POST(request: NextRequest) {
             errors: [] as ImportError[],
         };
 
+        // Eğitim kodu eşleşmesini hızlı ve toleranslı yapmak için tek seferde yükle
+        const allTrainings =
+            typeof (db.query.trainings as { findMany?: () => Promise<Array<{ code: string }>> }).findMany === "function"
+                ? await db.query.trainings.findMany()
+                : [];
+        const trainingByCode = new Map<string, (typeof allTrainings)[number]>();
+        for (const t of allTrainings) {
+            trainingByCode.set(normalizeTrainingCode(t.code), t);
+        }
+
         for (let i = 0; i < rows.length; i++) {
             const rowNo = i + 1;
             const row = rows[i];
 
             try {
                 const sicilNo = String(row.sicilNo ?? "").trim();
-                const egitimKodu = String(row.egitimKodu ?? "").trim();
+                const egitimKoduYeni = String(row.egitimKoduYeni ?? "").trim();
+                const egitimKoduEski = String(row.egitimKodu ?? "").trim();
+                const egitimKodu = egitimKoduYeni || egitimKoduEski;
                 const baslamaTarihi = normalizeDate(row.baslamaTarihi);
                 const bitisTarihi = normalizeDate(row.bitisTarihi) || baslamaTarihi;
                 const baslamaSaati = normalizeTime(row.baslamaSaati, "09:00");
@@ -208,9 +227,17 @@ export async function POST(request: NextRequest) {
                     results.createdPersonnel++;
                 }
 
-                const trainingData = await db.query.trainings.findFirst({
-                    where: eq(trainings.code, egitimKodu),
-                });
+                // Önce yeni kodu, sonra eski kodu normalize edip eşleştir
+                let trainingData =
+                    trainingByCode.get(normalizeTrainingCode(egitimKoduYeni)) ??
+                    trainingByCode.get(normalizeTrainingCode(egitimKoduEski));
+
+                // Son fallback: veritabanında birebir kontrol
+                if (!trainingData && egitimKodu) {
+                    trainingData = await db.query.trainings.findFirst({
+                        where: eq(trainings.code, egitimKodu),
+                    });
+                }
                 if (!trainingData) {
                     results.errors.push({ row: rowNo, message: `${sicilNo}: Eğitim kodu (${egitimKodu}) bulunamadı` });
                     continue;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/components/ToastProvider";
 
 interface User {
@@ -30,11 +30,7 @@ export default function ChefsPage() {
     });
     const [formLoading, setFormLoading] = useState(false);
 
-    useEffect(() => {
-        loadUsers();
-    }, []);
-
-    const loadUsers = async () => {
+    const loadUsers = useCallback(async () => {
         setLoading(true);
         try {
             const res = await fetch("/api/users");
@@ -48,7 +44,11 @@ export default function ChefsPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [toast]);
+
+    useEffect(() => {
+        loadUsers();
+    }, [loadUsers]);
 
     const handleOpenModal = (user?: User) => {
         if (user) {

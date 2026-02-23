@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 
 export default function LoginPage() {
     const router = useRouter();
@@ -10,12 +11,7 @@ export default function LoginPage() {
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
-    const [showForgotModal, setShowForgotModal] = useState(false);
-    const [mounted, setMounted] = useState(false);
-
-    useEffect(() => {
-        setMounted(true);
-    }, []);
+    const [showPassword, setShowPassword] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -25,12 +21,10 @@ export default function LoginPage() {
         try {
             const response = await fetch("/api/auth/login", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     sicil_no: sicilNo,
-                    password: password,
+                    password,
                 }),
             });
 
@@ -42,7 +36,6 @@ export default function LoginPage() {
                 return;
             }
 
-            // Rol bazlı yönlendirme
             if (data.role === "ADMIN") {
                 router.push("/admin");
             } else {
@@ -55,199 +48,105 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden">
-            {/* Animated Background Grid */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                {/* Gradient Orbs */}
-                <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-blue-600/20 rounded-full blur-[120px] animate-float opacity-60" />
-                <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-indigo-600/20 rounded-full blur-[100px] animate-float-delayed opacity-60" />
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-cyan-500/10 rounded-full blur-[80px]" />
-                
-                {/* Grid Pattern */}
-                <div 
-                    className="absolute inset-0 opacity-[0.02]"
-                    style={{
-                        backgroundImage: `linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px),
-                                         linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)`,
-                        backgroundSize: '60px 60px'
-                    }}
-                />
-            </div>
-
-            {/* Main Content */}
-            <div className={`w-full max-w-md relative z-10 transition-all duration-700 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-                {/* Logo Card */}
-                <div className="text-center mb-8">
-                    <div className={`inline-flex items-center justify-center p-6 rounded-3xl glass mb-6 transition-all duration-700 delay-100 ${mounted ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`}>
-                        <Image
-                            src="/tav-guvenlik-logo.png"
-                            alt="TAV Güvenlik"
-                            width={180}
-                            height={72}
-                            priority
-                            className="h-14 w-auto brightness-110"
-                        />
-                    </div>
-                    
-                    <h1 className={`text-3xl font-bold text-white tracking-tight mb-2 transition-all duration-700 delay-200 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-                        Eğitim Portalı
-                    </h1>
-                    <p className={`text-slate-400 text-sm transition-all duration-700 delay-300 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-                        Personel eğitim ve sertifikasyon yönetimi
-                    </p>
+        <div className="flex min-h-screen flex-col bg-white">
+            {/* Header */}
+            <header className="border-b border-slate-200">
+                <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
+                    <Link href="/" className="flex items-center gap-3">
+                        <Image src="/tav-guvenlik-logo.png" alt="TAV Güvenlik" width={90} height={36} className="h-8 w-auto" priority />
+                        <span className="text-sm font-semibold text-slate-700">Eğitim Paneli</span>
+                    </Link>
+                    <Link href="/" className="text-sm text-slate-500 transition hover:text-slate-900">
+                        Ana Sayfa
+                    </Link>
                 </div>
+            </header>
 
-                {/* Login Card */}
-                <div className={`glass rounded-3xl p-8 shadow-2xl shadow-black/20 transition-all duration-700 delay-400 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-                    <form onSubmit={handleSubmit} className="space-y-5">
-                        {/* Error Message */}
+            {/* Login Form */}
+            <main className="flex flex-1 items-center justify-center px-6 py-12">
+                <div className="w-full max-w-sm">
+                    <h1 className="text-2xl font-bold text-slate-900">Giriş Yap</h1>
+                    <p className="mt-1 text-sm text-slate-500">Sicil numaranız ve şifreniz ile oturum açın.</p>
+
+                    <form onSubmit={handleSubmit} className="mt-6 space-y-4">
                         {error && (
-                            <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 animate-shake">
-                                <div className="flex items-center gap-3 text-red-400">
-                                    <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                    <span className="text-sm">{error}</span>
-                                </div>
+                            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">
+                                {error}
                             </div>
                         )}
 
-                        {/* Sicil No Field */}
-                        <div className={`transition-all duration-700 delay-500 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-                            <label htmlFor="sicilNo" className="block text-sm font-medium text-slate-300 mb-2">
+                        <div>
+                            <label htmlFor="sicilNo" className="mb-1.5 block text-sm font-medium text-slate-700">
                                 Sicil Numarası
                             </label>
-                            <div className="relative group">
-                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                    <svg className="w-5 h-5 text-slate-500 group-focus-within:text-blue-400 transition-colors duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-                                    </svg>
-                                </div>
-                                <input
-                                    id="sicilNo"
-                                    type="text"
-                                    value={sicilNo}
-                                    onChange={(e) => setSicilNo(e.target.value)}
-                                    placeholder="Sicil numaranızı girin"
-                                    required
-                                    className="w-full pl-12 pr-4 py-3.5 bg-slate-900/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all duration-300 input-animated"
-                                />
-                            </div>
+                            <input
+                                id="sicilNo"
+                                type="text"
+                                value={sicilNo}
+                                onChange={(e) => setSicilNo(e.target.value)}
+                                placeholder="Örn. 123456"
+                                required
+                                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                            />
                         </div>
 
-                        {/* Password Field */}
-                        <div className={`transition-all duration-700 delay-600 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-                            <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-2">
+                        <div>
+                            <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-slate-700">
                                 Şifre
                             </label>
-                            <div className="relative group">
-                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                    <svg className="w-5 h-5 text-slate-500 group-focus-within:text-blue-400 transition-colors duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-                                    </svg>
-                                </div>
+                            <div className="relative">
                                 <input
                                     id="password"
-                                    type="password"
+                                    type={showPassword ? "text" : "password"}
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    placeholder="Şifrenizi girin"
+                                    placeholder="Şifreniz"
                                     required
-                                    className="w-full pl-12 pr-4 py-3.5 bg-slate-900/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all duration-300 input-animated"
+                                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 pr-10 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                                 />
-                            </div>
-                        </div>
-
-                        {/* Forgot Password */}
-                        <div className={`flex justify-end transition-all duration-700 delay-700 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-                            <button
-                                type="button"
-                                onClick={() => setShowForgotModal(true)}
-                                className="text-sm text-slate-400 hover:text-blue-400 transition-colors underline-animation"
-                            >
-                                Şifremi unuttum
-                            </button>
-                        </div>
-
-                        {/* Submit Button */}
-                        <div className={`transition-all duration-700 delay-800 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-                            <button
-                                type="submit"
-                                disabled={loading}
-                                className="w-full py-4 px-6 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-xl shadow-lg shadow-blue-600/25 hover:shadow-blue-600/40 hover:from-blue-500 hover:to-indigo-500 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-950 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed btn-lift"
-                            >
-                                {loading ? (
-                                    <span className="flex items-center justify-center gap-2">
-                                        <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600"
+                                >
+                                    {showPassword ? (
+                                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88" />
                                         </svg>
-                                        Giriş yapılıyor...
-                                    </span>
-                                ) : (
-                                    <span className="flex items-center justify-center gap-2">
-                                        Giriş Yap
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                                    ) : (
+                                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
                                         </svg>
-                                    </span>
-                                )}
-                            </button>
-                        </div>
-                    </form>
-                </div>
-
-                {/* Footer */}
-                <p className={`text-center text-xs text-slate-500 mt-8 transition-all duration-700 delay-900 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-                    © 2026 TAV Havalimanları Holding. Tüm hakları saklıdır.
-                </p>
-            </div>
-
-            {/* Forgot Password Modal */}
-            {showForgotModal && (
-                <div 
-                    className="fixed inset-0 bg-slate-950/80 modal-backdrop flex items-center justify-center z-50 p-4 animate-fade-in-scale"
-                    onClick={(e) => e.target === e.currentTarget && setShowForgotModal(false)}
-                >
-                    <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-6 max-w-md w-full animate-fade-in-scale">
-                        <div className="flex items-center gap-4 mb-6">
-                            <div className="p-3 bg-blue-500/10 rounded-xl">
-                                <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-                                </svg>
-                            </div>
-                            <div>
-                                <h3 className="text-lg font-semibold text-white">Şifremi Unuttum</h3>
-                                <p className="text-sm text-slate-400">Şifre sıfırlama talebi</p>
-                            </div>
-                        </div>
-                        
-                        <div className="bg-slate-800/50 rounded-xl p-4 mb-6">
-                            <p className="text-sm text-slate-300 leading-relaxed">
-                                Şifrenizi sıfırlamak için lütfen sistem yöneticinizle iletişime geçin. 
-                                Güvenlik nedeniyle şifre sıfırlama işlemleri yönetici tarafından yapılmaktadır.
-                            </p>
-                        </div>
-
-                        <div className="flex items-center gap-3 p-4 bg-blue-500/5 border border-blue-500/20 rounded-xl mb-6">
-                            <svg className="w-5 h-5 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-                            </svg>
-                            <div className="text-sm">
-                                <p className="text-slate-400">Destek:</p>
-                                <p className="text-blue-400 font-medium">it.destek@tav.aero</p>
+                                    )}
+                                </button>
                             </div>
                         </div>
 
                         <button
-                            onClick={() => setShowForgotModal(false)}
-                            className="w-full py-3 px-4 bg-slate-800 hover:bg-slate-700 text-white font-medium rounded-xl transition-colors duration-200"
+                            type="submit"
+                            disabled={loading}
+                            className="w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                            Anladım
+                            {loading ? (
+                                <span className="flex items-center justify-center gap-2">
+                                    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                    </svg>
+                                    Giriş yapılıyor...
+                                </span>
+                            ) : (
+                                "Giriş Yap"
+                            )}
                         </button>
-                    </div>
+                    </form>
+
+                    <p className="mt-8 text-center text-xs text-slate-400">
+                        &copy; 2026 TAV Havalimanları Holding
+                    </p>
                 </div>
-            )}
+            </main>
         </div>
     );
 }

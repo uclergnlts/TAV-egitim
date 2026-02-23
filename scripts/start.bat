@@ -3,26 +3,16 @@ setlocal enabledelayedexpansion
 chcp 65001 >nul 2>&1
 title TAV Egitim Paneli
 
-echo.
-echo ============================================
-echo   TAV Egitim Paneli baslatiliyor...
-echo ============================================
-echo.
-
-:: node.exe kontrol
+:: ============================================
+::   Dosya kontrolleri
+:: ============================================
 if not exist "%~dp0node.exe" (
     echo HATA: node.exe bulunamadi!
-    echo node.exe dosyasini start.bat ile ayni klasore koyun.
-    echo.
     pause
     exit /b 1
 )
-
-:: app klasoru kontrol
 if not exist "%~dp0app\server.js" (
     echo HATA: app\server.js bulunamadi!
-    echo Paketleme dogru yapilmamis olabilir.
-    echo.
     pause
     exit /b 1
 )
@@ -32,70 +22,81 @@ if not exist "%~dp0app\server.js" (
 :: ============================================
 if exist "%~dp0app\local.db" (
     if not exist "%~dp0backups" mkdir "%~dp0backups"
-
-    :: Tarih ve saat bilgisi al (YYYY-MM-DD_HH-MM-SS)
     for /f "tokens=2 delims==" %%I in ('wmic os get localdatetime /value 2^>nul') do set "DT=%%I"
-    set "TIMESTAMP=%DT:~0,4%-%DT:~4,2%-%DT:~6,2%_%DT:~8,2%-%DT:~10,2%-%DT:~12,2%"
+    set "TIMESTAMP=!DT:~0,4!-!DT:~4,2!-!DT:~6,2!_!DT:~8,2!-!DT:~10,2!-!DT:~12,2!"
+    copy /y "%~dp0app\local.db" "%~dp0backups\local_!TIMESTAMP!.db" >nul
 
-    copy /y "%~dp0app\local.db" "%~dp0backups\local_%TIMESTAMP%.db" >nul
-    echo   [YEDEK] local.db yedeklendi: backups\local_%TIMESTAMP%.db
-
-    :: Eski yedekleri temizle - sadece son 5 yedeği tut
+    :: Son 5 yedek tut
     set "COUNT=0"
     for /f "delims=" %%F in ('dir /b /o-d "%~dp0backups\local_*.db" 2^>nul') do (
         set /a COUNT+=1
         if !COUNT! gtr 5 del "%~dp0backups\%%F" >nul 2>&1
     )
-) else (
-    echo   [UYARI] local.db bulunamadi, yedek alinamadi!
 )
-echo.
 
 :: ============================================
 ::   Port kontrolu
 :: ============================================
 set PORT=3000
+
+:: Onceki oturumdan kalan process varsa kapat
 for /f "tokens=5" %%P in ('netstat -aon 2^>nul ^| findstr ":3000 " ^| findstr "LISTENING"') do (
-    echo   [UYARI] Port 3000 baska bir uygulama tarafindan kullaniliyor ^(PID: %%P^)
-    echo   Kapatmak icin: taskkill /PID %%P /F
-    echo.
+    taskkill /PID %%P /F >nul 2>&1
 )
+
+:: Hala mesgulse 3001 dene
+set "PORT_BUSY=0"
+for /f "tokens=5" %%P in ('netstat -aon 2^>nul ^| findstr ":3000 " ^| findstr "LISTENING"') do (
+    set "PORT_BUSY=1"
+)
+if "!PORT_BUSY!"=="1" set PORT=3001
 
 :: ============================================
 ::   Ortam degiskenleri
 :: ============================================
 set NODE_ENV=production
-set HOSTNAME=0.0.0.0
+set HOSTNAME=localhost
 set JWT_SECRET=tav-egitim-paneli-local-jwt-secret-2024-secure-key
 
-cd /d "%~dp0app"
+:: ============================================
+::   UNC path destegi
+::   pushd ag yolunu gecici surucu harfine baglar
+:: ============================================
+pushd "%~dp0app"
+if errorlevel 1 (
+    echo HATA: Uygulama klasorune erisim saglanamadi!
+    pause
+    exit /b 1
+)
+
+:: Calisma dizinini kaydet (pushd sonrasi mapped drive)
+set "APP_DIR=%CD%"
 
 :: ============================================
-::   Tarayiciyi gecikmeli ac (server hazir olsun)
+::   Node.exe'yi GIZLI baslat (VBScript ile)
+::   Kullanici hicbir CMD penceresi gormez
 :: ============================================
-start "" /b cmd /c "title TAV-Browser-Opener & ping -n 8 127.0.0.1 >nul & start http://localhost:%PORT%"
+set "VBS=%TEMP%\tav_launch_%RANDOM%.vbs"
+> "!VBS!" echo Set oShell = CreateObject("WScript.Shell")
+>> "!VBS!" echo oShell.CurrentDirectory = "!APP_DIR!"
+>> "!VBS!" echo oShell.Run """%~dp0node.exe"" server.js", 0, False
 
-echo ============================================
-echo   Uygulama baslatiliyor...
-echo ============================================
-echo.
-echo   Erisim: http://localhost:%PORT%
-echo   Tarayici birkaç saniye icinde acilacak.
-echo.
-echo   Bu pencereyi kapatmak uygulamayi durduracaktir.
-echo   Hata olursa asagida gorunecektir.
-echo.
-echo ============================================
-echo.
+cscript //nologo "!VBS!"
+del "!VBS!" >nul 2>&1
 
-:: Server'i on planda calistir (hatalar gorunur)
-"%~dp0node.exe" server.js
+:: pushd'yi geri al
+popd
 
-:: Buraya gelirse server durmus demektir
-echo.
-echo ============================================
-echo   [HATA] Server durdu!
-echo   Yukardaki hata mesajlarini kontrol edin.
-echo ============================================
-echo.
-pause
+:: ============================================
+::   Server'in hazir olmasini bekle, tarayici ac
+:: ============================================
+ping -n 4 127.0.0.1 >nul
+start "" "http://localhost:!PORT!"
+
+:: ============================================
+::   Bu CMD penceresi hemen kapanir
+::   Node.exe arka planda calisir
+::   Tarayici kapaninca heartbeat durur
+::   ve sunucu 60 sn sonra otomatik kapanir
+:: ============================================
+exit
