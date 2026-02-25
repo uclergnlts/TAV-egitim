@@ -18,7 +18,7 @@ const getJwtSecret = (): Uint8Array => {
 };
 
 // Korumasız rotalar (herkes erişebilir)
-const publicRoutes = ["/", "/login", "/api/auth/login", "/api/health"];
+const publicRoutes = ["/", "/login", "/api/auth/login", "/api/health", "/api/heartbeat"];
 
 // Sadece ADMIN erişebilir
 const adminOnlyRoutes = ["/admin", "/api/reports", "/api/export", "/api/personnel/import"];

@@ -48,7 +48,6 @@ if not exist "!UPDATE_DIR!\app\server.js" (
         echo       app\server.js
         echo       node.exe
         echo       start.bat
-        echo       kapat.bat
         echo.
         popd
         pause
@@ -115,12 +114,6 @@ if exist "!UPDATE_DIR!\node.exe" (
 if exist "!UPDATE_DIR!\start.bat" (
     copy /y "!UPDATE_DIR!\start.bat" "!APP_DIR!start.bat" >nul
     echo          start.bat guncellendi.
-)
-
-:: kapat.bat guncelle
-if exist "!UPDATE_DIR!\kapat.bat" (
-    copy /y "!UPDATE_DIR!\kapat.bat" "!APP_DIR!kapat.bat" >nul
-    echo          kapat.bat guncellendi.
 )
 
 :: ============================================

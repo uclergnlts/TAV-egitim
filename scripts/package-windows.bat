@@ -155,13 +155,13 @@ echo APP_ENV=production
 echo      .env dosyasi olusturuldu.
 echo.
 
-:: start.bat, kapat.bat ve update.bat kopyala
-echo start.bat, kapat.bat ve update.bat kopyalaniyor...
+:: start.bat, launch.ps1 ve update.bat kopyala
+echo start.bat, launch.ps1 ve update.bat kopyalaniyor...
 copy /y "%~dp0start.bat" "dist\start.bat" >nul
-copy /y "%~dp0kapat.bat" "dist\kapat.bat" >nul 2>&1
+copy /y "%~dp0launch.ps1" "dist\app\launch.ps1" >nul
 copy /y "%~dp0update.bat" "dist\update.bat" >nul 2>&1
 echo      start.bat kopyalandi.
-echo      kapat.bat kopyalandi.
+echo      launch.ps1 kopyalandi (dist\app\).
 echo      update.bat kopyalandi.
 echo.
 
